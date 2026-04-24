@@ -59,6 +59,20 @@ mark paid
 return verdict, payment, balance
 ```
 
+## Collaboration Handoffs
+
+Backend must publish stable contracts before frontend depends on behavior.
+
+Before handing work to frontend, confirm:
+
+- response shapes match `docs/api-contracts.md`
+- stable error codes exist
+- fallback modes are explicit
+- idempotency behavior is documented
+- fake response fixtures are available or easy to reproduce
+
+Backend owns the contract for `POST /api/gigs/{gig_id}/complete`. Any change to this endpoint needs coordination with frontend and UI/UX because it affects camera flow, loading states, payment feedback, and completion copy.
+
 ## Testing Strategy
 
 Start with fake adapters:
@@ -83,4 +97,3 @@ Required backend failure states:
 - local state write failed
 
 The frontend should always receive a recoverable response shape where possible.
-
