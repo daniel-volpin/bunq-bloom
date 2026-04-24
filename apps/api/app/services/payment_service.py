@@ -37,6 +37,25 @@ class PaymentService:
             state["balances"]["kid_001"] = kid_balance
         return payment, kid_balance
 
+    def record_failed_payment(self, *, state: dict, gig: dict, error_code: str) -> dict:
+        payment_id = new_id("payment")
+        now = now_iso()
+        payment = {
+            "id": payment_id,
+            "gig_id": gig["id"],
+            "amount": gig["reward_amount"],
+            "currency": gig["currency"],
+            "from_monetary_account_id": getattr(self.payment_client, "parent_account_id", "unknown"),
+            "to_monetary_account_id": getattr(self.payment_client, "kid_account_id", "unknown"),
+            "bunq_payment_id": None,
+            "status": "failed",
+            "error_code": error_code,
+            "created_at": now,
+            "updated_at": now,
+        }
+        state["payments"][payment_id] = payment
+        return payment
+
     def get_kid_balance(self, state: dict) -> dict:
         if getattr(self.payment_client, "mode", "fake_local") == "fake_local":
             return state["balances"]["kid_001"]

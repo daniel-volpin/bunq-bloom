@@ -1,6 +1,7 @@
 from app.errors import AppError
 from app.integrations.fake_verification_client import FakeVerificationClient
 from app.models.domain import new_id, now_iso
+from app.models.verification import VerificationResultModel
 from app.repositories.photo_repository import PhotoRepository
 from app.repositories.state_repository import StateRepository
 from app.services.payment_service import PaymentService
@@ -14,11 +15,13 @@ class GigService:
         photo_repository: PhotoRepository,
         verification_client: FakeVerificationClient,
         payment_service: PaymentService,
+        allow_ai_fallback: bool = False,
     ):
         self.state_repository = state_repository
         self.photo_repository = photo_repository
         self.verification_client = verification_client
         self.payment_service = payment_service
+        self.allow_ai_fallback = allow_ai_fallback
 
     def list_gigs(self) -> dict:
         state = self.state_repository.load()
@@ -92,37 +95,65 @@ class GigService:
         if not gig.get("before_photo_id"):
             raise AppError("missing_before_photo", "Add a before photo before completing the gig.")
 
-        before_photo = state["photos"][gig["before_photo_id"]]
-        after_photo = self.photo_repository.save_data_url(after_image_base64, gig_id=gig_id, kind="after")
-        after_photo["created_at"] = now_iso()
-        state["photos"][after_photo["id"]] = after_photo
-        gig["after_photo_id"] = after_photo["id"]
-        gig["status"] = "verifying"
-        gig["updated_at"] = now_iso()
+        after_photo_id = None
+        if gig["status"] == "payment_failed" and gig.get("verification_result_id"):
+            verification = state["verification_results"][gig["verification_result_id"]]
+            if not verification.get("approved"):
+                raise AppError("invalid_gig_state", "Rejected gigs need a new after photo before retry.")
+        else:
+            before_photo = state["photos"][gig["before_photo_id"]]
+            after_photo = self.photo_repository.save_data_url(after_image_base64, gig_id=gig_id, kind="after")
+            after_photo["created_at"] = now_iso()
+            state["photos"][after_photo["id"]] = after_photo
+            after_photo_id = after_photo["id"]
+            gig["after_photo_id"] = after_photo["id"]
+            gig["status"] = "verifying"
+            gig["updated_at"] = now_iso()
 
-        verification = self.verification_client.verify(
-            gig=gig,
-            before_photo=before_photo,
-            after_photo=after_photo,
-        )
-        verification["created_at"] = now_iso()
-        state["verification_results"][verification["id"]] = verification
-        gig["verification_result_id"] = verification["id"]
+            verification = self._verify_or_fallback(
+                gig=gig,
+                before_photo=before_photo,
+                after_photo=after_photo,
+            )
+            verification["created_at"] = now_iso()
+            state["verification_results"][verification["id"]] = verification
+            gig["verification_result_id"] = verification["id"]
 
         if not verification["approved"]:
             gig["status"] = "rejected"
             gig["updated_at"] = now_iso()
             response = self._completion_response(gig, verification, None, None, mode="fake_local")
-            self._store_attempt(state, attempt_id, response, verification["id"], None, after_photo["id"])
+            self._store_attempt(state, attempt_id, response, verification["id"], None, after_photo_id)
             self.state_repository.save(state)
             return response
 
         gig["status"] = "approved"
-        payment, kid_balance = self.payment_service.pay_for_gig(
-            state=state,
-            gig=gig,
-            idempotency_key=attempt_id,
-        )
+        try:
+            payment, kid_balance = self.payment_service.pay_for_gig(
+                state=state,
+                gig=gig,
+                idempotency_key=attempt_id,
+            )
+        except AppError as exc:
+            payment = self.payment_service.record_failed_payment(
+                state=state,
+                gig=gig,
+                error_code=exc.code,
+            )
+            gig["payment_id"] = payment["id"]
+            gig["status"] = "payment_failed"
+            gig["updated_at"] = now_iso()
+            response = self._completion_response(
+                gig,
+                verification,
+                payment,
+                None,
+                mode=getattr(self.payment_service.payment_client, "mode", "fake_local"),
+            )
+            self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
+            self.state_repository.save(state)
+            return response
+
         gig["payment_id"] = payment["id"]
         gig["status"] = "paid"
         gig["updated_at"] = now_iso()
@@ -133,7 +164,7 @@ class GigService:
             kid_balance,
             mode=getattr(self.payment_service.payment_client, "mode", "fake_local"),
         )
-        self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo["id"])
+        self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
         self.state_repository.save(state)
         return response
 
@@ -170,6 +201,34 @@ class GigService:
             "response": response,
             "created_at": now_iso(),
         }
+
+    def _verify_or_fallback(self, *, gig: dict, before_photo: dict, after_photo: dict) -> dict:
+        try:
+            raw_verification = self.verification_client.verify(
+                gig=gig,
+                before_photo=before_photo,
+                after_photo=after_photo,
+            )
+            return VerificationResultModel.model_validate(raw_verification).model_dump()
+        except Exception as exc:
+            if not self.allow_ai_fallback:
+                raise AppError(
+                    "verification_failed",
+                    "AI verification failed. Try again.",
+                    status_code=502,
+                    retryable=True,
+                ) from exc
+            return VerificationResultModel(
+                id=new_id("verif"),
+                gig_id=gig["id"],
+                approved=True,
+                confidence=0,
+                tags=["demo fallback"],
+                message_for_kid="Demo fallback approved this task because AI verification is unavailable.",
+                reasoning_summary="AI verification failed and explicit demo fallback was enabled.",
+                raw_provider="fallback",
+                raw_model="ai-fallback-v1",
+            ).model_dump()
 
     def _completion_response(
         self,
@@ -213,5 +272,6 @@ class GigService:
             "status": payment["status"],
             "amount": payment["amount"],
             "currency": payment["currency"],
-            "bunq_payment_id": payment["bunq_payment_id"],
+            "bunq_payment_id": payment.get("bunq_payment_id"),
+            "retryable": payment["status"] == "failed",
         }

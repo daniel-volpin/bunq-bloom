@@ -23,4 +23,5 @@ def get_gig_service() -> GigService:
         photo_repository=photo_repository,
         verification_client=verification_client,
         payment_service=payment_service,
+        allow_ai_fallback=settings.demo_allow_ai_fallback,
     )

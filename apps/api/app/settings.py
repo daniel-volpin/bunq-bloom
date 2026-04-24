@@ -26,6 +26,38 @@ class Settings(BaseSettings):
     bunq_parent_account_id: str | None = Field(default=None, alias="BUNQ_PARENT_ACCOUNT_ID")
     bunq_kid_account_id: str | None = Field(default=None, alias="BUNQ_KID_ACCOUNT_ID")
 
+    def claude_mode(self) -> str:
+        return "fake" if self.use_fake_ai else "real"
+
+    def claude_missing_config_codes(self) -> list[str]:
+        if self.use_fake_ai:
+            return []
+        return [] if self.anthropic_api_key else ["anthropic_api_key_missing"]
+
+    def bunq_mode(self) -> str:
+        return "fake" if self.use_fake_bunq else "real"
+
+    def bunq_missing_config_codes(self) -> list[str]:
+        if self.use_fake_bunq:
+            return []
+
+        missing = []
+        if not self.bunq_api_key:
+            missing.append("bunq_api_key_missing")
+        if not self.bunq_parent_account_id:
+            missing.append("bunq_parent_account_id_missing")
+        if not self.bunq_kid_account_id:
+            missing.append("bunq_kid_account_id_missing")
+        if not self.resolved_bunq_toolkit_client_path().exists():
+            missing.append("bunq_toolkit_client_missing")
+        return missing
+
+    def resolved_bunq_toolkit_client_path(self) -> Path:
+        path = self.bunq_toolkit_path
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        return path.resolve() / "bunq_client.py"
+
 
 @lru_cache
 def get_settings() -> Settings:
