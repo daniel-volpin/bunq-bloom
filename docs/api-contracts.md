@@ -14,6 +14,22 @@ All responses should include JSON. Errors should use a consistent shape:
 }
 ```
 
+Common error codes:
+
+- `invalid_gig_state`
+- `missing_before_photo`
+- `image_too_large`
+- `invalid_image_type`
+- `verification_failed`
+- `payment_failed`
+- `duplicate_completion`
+
+Image upload constraints:
+
+- Accepted content types: `image/jpeg`, `image/png`, `image/webp`
+- Max original upload size: 8 MB
+- The API can receive base64 for MVP speed, but backend storage should persist files under `data/uploads/` and store references in JSON.
+
 ## Gig APIs
 
 ### `GET /api/gigs`
@@ -143,6 +159,7 @@ Response on approval and payment success:
     "currency": "EUR",
     "source": "bunq"
   },
+  "mode": "real",
   "fallback_mode": false
 }
 ```
@@ -163,6 +180,7 @@ Response on AI rejection:
   },
   "payment": null,
   "kid_balance": null,
+  "mode": "real",
   "fallback_mode": false
 }
 ```
@@ -188,9 +206,17 @@ Response on payment failure after approval:
     "retryable": true
   },
   "kid_balance": null,
+  "mode": "real",
   "fallback_mode": false
 }
 ```
+
+Mode values:
+
+- `fake_local`: intentionally configured local fake AI/payment mode
+- `real`: real Claude and/or bunq operation succeeded
+- `ai_fallback`: Claude failed and explicit demo fallback was used
+- `bunq_fallback`: bunq failed and explicit demo fallback was used
 
 ## Money APIs
 
@@ -229,4 +255,3 @@ Response:
   }
 }
 ```
-

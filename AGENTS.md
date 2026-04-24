@@ -58,6 +58,10 @@ Start with these docs before making product or architecture decisions:
 - `docs/domain-model.md`
 - `docs/system-architecture.md`
 - `docs/api-contracts.md`
+- `docs/technical-implementation-plan.md`
+- `docs/mvp-spec.md`
+- `docs/pre-implementation-decisions.md`
+- `docs/runbook.md`
 - `docs/engineering-priorities.md`
 - `docs/project-tracker.md`
 - `docs/integrations/bunq-hackathon-toolkit.md`

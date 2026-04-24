@@ -14,6 +14,10 @@ parent posts gig -> kid takes before/after photos -> AI verifies -> bunq sandbox
 - [Domain Model](./domain-model.md) defines the core entities and state transitions.
 - [System Architecture](./system-architecture.md) defines the Next.js, FastAPI, Claude, and bunq sandbox boundaries.
 - [API Contracts](./api-contracts.md) defines the initial REST surface between frontend and backend.
+- [Technical Implementation Plan](./technical-implementation-plan.md) defines repo layout, tooling, adapters, and build sequence.
+- [MVP Spec](./mvp-spec.md) defines the exact first product behavior and acceptance criteria.
+- [Pre-Implementation Decisions](./pre-implementation-decisions.md) records account model, idempotency, photo storage, fallback, CI, and runbook decisions.
+- [Runbook](./runbook.md) will define local startup and smoke-test steps once code exists.
 - [Engineering Priorities](./engineering-priorities.md) defines what should be built first and what should be deferred.
 - [bunq Hackathon Toolkit Reference](./integrations/bunq-hackathon-toolkit.md) defines how to use the local toolkit safely.
 - [Backend Agent Guide](./agents/backend.md) defines backend/API implementation guidance.

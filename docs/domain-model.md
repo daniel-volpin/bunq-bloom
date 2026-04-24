@@ -72,7 +72,7 @@ Fields:
 - `storage_ref`
 - `created_at`
 
-MVP storage can be inline base64 in local JSON or files under a local ignored directory. The API should not depend on the final storage choice.
+MVP storage uses files under `data/uploads/`, with JSON storing only references. The API may accept base64 for implementation speed, but local state should not store full image payloads.
 
 ### Verification Result
 
@@ -145,4 +145,3 @@ Recovery rules:
 - A payment must be tied to exactly one gig.
 - A kid balance shown after completion should come from bunq when available, not only local state.
 - Local fallback state must clearly mark simulated values if bunq is unavailable.
-

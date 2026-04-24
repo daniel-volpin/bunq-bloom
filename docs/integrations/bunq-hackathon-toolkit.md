@@ -108,6 +108,20 @@ The core loop only needs three bunq capabilities:
 
 Anything beyond that is deferred unless required for the core loop.
 
+## Bloom Account Model
+
+Use one bunq sandbox user with two monetary accounts for MVP:
+
+- parent account: source of gig reward payments
+- kid account: destination for earned rewards
+
+Configure:
+
+- `BUNQ_PARENT_ACCOUNT_ID`
+- `BUNQ_KID_ACCOUNT_ID`
+
+This avoids managing two API keys and two session contexts. If bunq sandbox rejects same-user account transfers, keep the Bloom `PaymentClient` interface and change only the bunq adapter internals to support two sandbox users.
+
 ## Endpoint Cheatsheet For Bloom
 
 List bank accounts:
