@@ -60,8 +60,21 @@ Start with these docs before making product or architecture decisions:
 - `docs/api-contracts.md`
 - `docs/engineering-priorities.md`
 - `docs/project-tracker.md`
+- `docs/integrations/bunq-hackathon-toolkit.md`
+- `docs/agents/backend.md`
+- `docs/agents/frontend.md`
+- `docs/agents/ui-ux.md`
 
 Do not add pitch, demo-script, or marketing work unless explicitly requested.
+
+## Role-Specific Guidance
+
+When working in a specific area, read the relevant specialization first:
+
+- Backend/API/integrations: `docs/agents/backend.md`
+- Frontend/Next.js/client state: `docs/agents/frontend.md`
+- Visual design/copy/mobile UX: `docs/agents/ui-ux.md`
+- bunq sandbox/toolkit usage: `docs/integrations/bunq-hackathon-toolkit.md`
 
 ## Build Priorities
 
@@ -143,4 +156,3 @@ Examples:
 - Integration: fake adapters first, then real sandbox smoke tests when credentials are configured.
 
 If checks cannot run because dependencies or credentials are missing, state that clearly.
-

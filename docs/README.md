@@ -15,6 +15,10 @@ parent posts gig -> kid takes before/after photos -> AI verifies -> bunq sandbox
 - [System Architecture](./system-architecture.md) defines the Next.js, FastAPI, Claude, and bunq sandbox boundaries.
 - [API Contracts](./api-contracts.md) defines the initial REST surface between frontend and backend.
 - [Engineering Priorities](./engineering-priorities.md) defines what should be built first and what should be deferred.
+- [bunq Hackathon Toolkit Reference](./integrations/bunq-hackathon-toolkit.md) defines how to use the local toolkit safely.
+- [Backend Agent Guide](./agents/backend.md) defines backend/API implementation guidance.
+- [Frontend Agent Guide](./agents/frontend.md) defines Next.js implementation guidance.
+- [UI/UX Agent Guide](./agents/ui-ux.md) defines mobile product and visual guidance.
 
 ## Working Principles
 
@@ -23,4 +27,3 @@ parent posts gig -> kid takes before/after photos -> AI verifies -> bunq sandbox
 - Treat real money movement, even in sandbox, as the product-defining proof.
 - Keep state simple and inspectable until the core flow is stable.
 - Prefer mobile-first implementation decisions because the product is camera-led.
-
