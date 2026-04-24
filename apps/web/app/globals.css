@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --bloom-ink: #243042;
+  --bloom-paper: #fffdf7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(41, 168, 255, 0.22), transparent 34rem),
+    radial-gradient(circle at top right, rgba(255, 211, 77, 0.36), transparent 30rem),
+    linear-gradient(180deg, #fffdf7 0%, #fff3d7 100%);
+  color: var(--bloom-ink);
+  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tap-target {
+  min-height: 44px;
+}

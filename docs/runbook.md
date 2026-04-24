@@ -1,17 +1,36 @@
 # Runbook
 
-This runbook is a placeholder until the frontend and backend are scaffolded. Do not invent commands before code exists.
+This runbook covers the current M1 fake-adapter implementation.
 
 ## Local Fake Mode
 
-To be filled after scaffolding:
+Backend:
 
-- install backend dependencies
-- install frontend dependencies
-- create local `.env` files from `.env.example`
-- start FastAPI backend with fake AI and fake bunq
-- start Next.js frontend
-- complete the seeded fake gig loop
+```bash
+cd apps/api
+cp .env.example .env
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e ".[dev]"
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Frontend:
+
+```bash
+cd apps/web
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+The frontend calls relative `/api/*` routes. Next.js proxies those requests to FastAPI through `API_BASE_URL`.
+
+Open:
+
+```text
+http://localhost:3000/gigs
+```
 
 Expected smoke test:
 
@@ -24,6 +43,21 @@ after photo accepted
 fake verification approves
 fake payment succeeds
 verdict screen shows updated fake balance
+```
+
+Backend test command:
+
+```bash
+cd apps/api
+pytest tests
+```
+
+Frontend check commands:
+
+```bash
+cd apps/web
+npm run typecheck
+npm run lint
 ```
 
 ## Real bunq Smoke Test
@@ -48,13 +82,15 @@ backend fetches updated kid balance
 
 ## Reset Local State
 
-To be filled after storage paths are implemented.
+Local fake state lives under `apps/api/data/` by default.
 
-Expected reset scope:
+Reset app state:
 
-- delete local app state under `data/`
-- optionally delete `bunq_context.json` only when re-authentication is needed
-- never delete real source files
+```bash
+rm -rf apps/api/data
+```
+
+Only delete `bunq_context.json` when re-authentication is needed. Never commit or display that file.
 
 ## Troubleshooting
 
@@ -69,3 +105,6 @@ Known categories to document during implementation:
 - bunq 401/403/429/400
 - duplicate completion attempt
 
+## Current Environment Note
+
+In the current Codex environment, backend tests pass. Node/npm are not installed in PATH, so frontend typecheck and lint could not be run here.
