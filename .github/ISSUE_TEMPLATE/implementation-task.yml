@@ -1,0 +1,60 @@
+name: Implementation Task
+description: Track build work for bunq Bloom.
+title: "[Task] "
+labels: []
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What user or system outcome should this task produce?
+      placeholder: Kid can submit an after photo and receive a verification result.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is included and explicitly excluded?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Concrete checks that prove this task is done.
+      placeholder: |
+        - API returns a typed response.
+        - Duplicate requests do not create duplicate payments.
+        - Error state is visible in the UI.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - frontend
+        - backend
+        - ai
+        - bunq
+        - docs
+        - full-stack
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - priority:critical
+        - priority:high
+        - priority:medium
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Dependencies, risks, docs, or implementation hints.
+

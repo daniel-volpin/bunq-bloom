@@ -1,0 +1,33 @@
+# Secrets and local env
+.env
+.env.*
+!.env.example
+bunq_context.json
+
+# Local app state
+data/
+uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Tooling
+.deepeval/
+.DS_Store
+

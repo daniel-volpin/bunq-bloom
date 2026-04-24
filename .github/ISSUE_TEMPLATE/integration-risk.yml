@@ -1,0 +1,40 @@
+name: Integration Risk
+description: Track demo-critical risks around Claude, bunq, camera, or state.
+title: "[Risk] "
+labels: ["demo-risk"]
+body:
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk
+      description: What can fail?
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What happens to the core loop if this fails?
+    validations:
+      required: true
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Mitigation
+      description: Fallback, retry, fake adapter, or operational workaround.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Claude Vision
+        - bunq sandbox
+        - mobile camera
+        - local state
+        - frontend UX
+        - backend API
+    validations:
+      required: true
+
