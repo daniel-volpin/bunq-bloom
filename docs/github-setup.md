@@ -1,27 +1,29 @@
 # GitHub Setup
 
-GitHub CLI is installed, but authentication must be valid before remote setup can run.
+GitHub is configured for this project.
 
-## Re-authenticate
+Repository:
 
-```bash
-gh auth login -h github.com
-```
+- `https://github.com/daniel-volpin/bunq-bloom`
 
-## Create The Repository
+Project board:
 
-From `/Users/pnl11e4o/Documents/Bunq`:
+- `https://github.com/users/daniel-volpin/projects/6`
 
-```bash
-git init
-git add .
-git commit -m "Initialize bunq Bloom project docs"
-gh repo create bunq-bloom --private --source=. --remote=origin --push
-```
+## Current Setup
 
-Use `--public` instead of `--private` only if the team explicitly wants the hackathon repo public.
+- Private repository created and pushed.
+- Local `main` tracks `origin/main`.
+- Issue templates and PR template are committed.
+- Labels are created.
+- Milestones are created.
+- Backlog issues from `docs/project-tracker.md` are created.
+- GitHub Project `bunq Bloom Build` is created, linked to the repository, and populated with issues.
+- Custom project fields are created: `Area`, `Priority`, `Demo Risk`.
 
-## Create Labels
+## Label Setup
+
+These labels are already created. Re-run with `--force` only if they need to be repaired.
 
 ```bash
 gh label create frontend --color 1D76DB
@@ -35,7 +37,9 @@ gh label create priority:medium --color FBCA04
 gh label create demo-risk --color E11D21
 ```
 
-## Create Milestones
+## Milestone Setup
+
+These milestones are already created.
 
 ```bash
 gh api repos/:owner/:repo/milestones -f title="M1 Core Loop Fake Adapters"
@@ -44,15 +48,20 @@ gh api repos/:owner/:repo/milestones -f title="M3 Mobile Camera UX"
 gh api repos/:owner/:repo/milestones -f title="M4 Demo Hardening"
 ```
 
-## Create A GitHub Project
+## Project Setup
 
-GitHub Projects v2 is easiest to create from the GitHub UI:
+Project fields:
 
-1. Open the repository on GitHub.
-2. Go to `Projects`.
-3. Create a new project named `bunq Bloom Build`.
-4. Add fields and views from `docs/project-tracker.md`.
-5. Convert the tracker items into issues and add them to the project.
+- Status: default GitHub field
+- Milestone: default GitHub field
+- Labels: default GitHub field
+- Area: custom single-select field
+- Priority: custom single-select field
+- Demo Risk: custom single-select field
 
-The CLI can automate this later with `gh project`, but the owner scope and account type should be confirmed first.
+Recommended manual views to add in the GitHub UI:
 
+- `Core Loop Board`: grouped by Status, filtered to M1 and M2.
+- `Demo Risks`: filtered to `demo-risk`.
+- `Frontend`: filtered to `frontend`.
+- `Backend + Integrations`: filtered to `backend`, `ai`, and `bunq`.
