@@ -89,6 +89,23 @@ The completion screen must show:
 
 For fallback mode, copy must be explicit enough for honesty while keeping the flow usable.
 
+## Cross-Agent Review Points
+
+UI/UX should review these before they are considered done:
+
+- camera capture and retake flow
+- verification loading state
+- payment loading state
+- completion screen hierarchy
+- AI rejection copy
+- payment failure copy
+- fake/local mode copy
+- AI fallback copy
+- bunq fallback copy
+- recoverable error states
+
+For cross-stack work, UI/UX should provide copy and state guidance early enough that frontend does not hardcode vague placeholders.
+
 ## Motion
 
 Use motion sparingly:
@@ -99,4 +116,3 @@ Use motion sparingly:
 - balance increase
 
 Do not animate critical error messages away.
-

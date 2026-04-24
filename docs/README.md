@@ -23,6 +23,7 @@ parent posts gig -> kid takes before/after photos -> AI verifies -> bunq sandbox
 - [Backend Agent Guide](./agents/backend.md) defines backend/API implementation guidance.
 - [Frontend Agent Guide](./agents/frontend.md) defines Next.js implementation guidance.
 - [UI/UX Agent Guide](./agents/ui-ux.md) defines mobile product and visual guidance.
+- [Agent Orchestration Guide](./agents/orchestration.md) defines when and how to use multiple coding agents.
 
 ## Working Principles
 

@@ -65,6 +65,7 @@ Start with these docs before making product or architecture decisions:
 - `docs/engineering-priorities.md`
 - `docs/project-tracker.md`
 - `docs/integrations/bunq-hackathon-toolkit.md`
+- `docs/agents/orchestration.md`
 - `docs/agents/backend.md`
 - `docs/agents/frontend.md`
 - `docs/agents/ui-ux.md`
@@ -79,6 +80,29 @@ When working in a specific area, read the relevant specialization first:
 - Frontend/Next.js/client state: `docs/agents/frontend.md`
 - Visual design/copy/mobile UX: `docs/agents/ui-ux.md`
 - bunq sandbox/toolkit usage: `docs/integrations/bunq-hackathon-toolkit.md`
+- Multi-agent/sub-agent coordination: `docs/agents/orchestration.md`
+
+## Multi-Agent Collaboration
+
+Use sub-agents when they materially reduce delivery time or risk. Do not create process overhead for small changes.
+
+Good delegation targets:
+
+- Backend service/API work with clear file ownership.
+- Frontend screens/API client work against stable contracts.
+- UI/UX review for camera, fallback, completion, and mobile states.
+- Parallel research on separate integration risks.
+- Independent test/review passes.
+
+Rules:
+
+- The orchestrating agent remains responsible for integration quality.
+- Do not delegate the immediate critical-path blocker if local progress depends on the answer.
+- Do not assign multiple agents to edit the same files in parallel.
+- Use `docs/api-contracts.md` as the frontend/backend handoff boundary.
+- Coordinate any change to `POST /api/gigs/{gig_id}/complete` across backend, frontend, and UI/UX because it joins AI, payment, idempotency, balance, and completion UI.
+- Prefer simple predefined workflows for predictable tasks; use open-ended agent work only when the required subtasks are not knowable upfront.
+- Verify delegated work with tests, diffs, smoke checks, or screenshots before integrating.
 
 ## Build Priorities
 

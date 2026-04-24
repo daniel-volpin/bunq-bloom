@@ -64,6 +64,7 @@ Shared:
 - Add `.env.example` files, never real `.env` files.
 - Use fake adapters by default so the app works without credentials.
 - Build the first vertical slice across backend and frontend instead of completing one side in isolation.
+- Use `docs/agents/orchestration.md` when splitting work across multiple coding agents.
 
 ## Environment Contract
 
@@ -253,6 +254,18 @@ Sequence:
 11. Build completion call and verdict screen.
 12. Add parent gig creation after seeded kid flow works.
 13. Add tests around backend state transitions and completion idempotency.
+
+## Parallel Work Guidance
+
+Safe parallel tracks after the API contract is agreed:
+
+- Backend agent: fake-adapter endpoints, domain service, local state, idempotency tests.
+- Frontend agent: app shell, typed API client, gig list, camera flow against documented fake responses.
+- UI/UX agent: camera state design, completion screen hierarchy, fallback/retry copy.
+
+Do not parallelize real bunq payment work with completion endpoint contract changes unless file ownership and response shapes are already stable.
+
+The orchestrating agent should integrate these tracks and run the smallest relevant verification before moving to real integrations.
 
 ## Real Integration Sequence
 

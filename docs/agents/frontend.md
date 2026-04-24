@@ -70,3 +70,14 @@ Completion states the UI must handle:
 
 Do not collapse these into one generic error message.
 
+## Backend Contract Dependencies
+
+Frontend should build against documented contracts, not guessed backend behavior.
+
+Rules:
+
+- Use `docs/api-contracts.md` as the source for request/response shapes.
+- If a required backend state is missing, surface the contract gap instead of inventing a local-only state.
+- Use fake fixtures only when they match the documented API contract.
+- Coordinate with UI/UX on kid-facing copy for verification, payment, fallback, and retry states.
+- Treat `POST /api/gigs/{gig_id}/complete` as a cross-stack integration point, not a normal form submit.
