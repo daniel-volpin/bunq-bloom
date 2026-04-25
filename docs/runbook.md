@@ -20,13 +20,14 @@ Backend `.env` values for local frontend integration should be:
 ```text
 BLOOM_AI_PROVIDER=lmstudio
 BLOOM_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
-BLOOM_LMSTUDIO_MODEL=qwen3.5-9b-mlx
+BLOOM_LMSTUDIO_MODEL=<your-vision-model-id>
 BLOOM_USE_FAKE_BUNQ=true
 ```
 
 Notes:
 
 - LM Studio is now a real readiness dependency for AI-backed flows.
+- The configured LM Studio model must be vision-capable for before/after verification and Snap & Learn.
 - If `BLOOM_LMSTUDIO_MODEL` is missing, `/api/health` reports AI as `not_configured` and backend readiness as `not_ready`.
 - `BLOOM_USE_FAKE_BUNQ=true` still keeps bunq in fake mode while the real bunq sandbox path is hardened.
 

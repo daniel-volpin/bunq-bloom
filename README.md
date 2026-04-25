@@ -28,7 +28,7 @@ Recommended local backend mode for the current baseline:
 ```text
 BLOOM_AI_PROVIDER=lmstudio
 BLOOM_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
-BLOOM_LMSTUDIO_MODEL=qwen3.5-9b-mlx
+BLOOM_LMSTUDIO_MODEL=<your-vision-model-id>
 BLOOM_USE_FAKE_BUNQ=true
 ```
 

@@ -161,6 +161,19 @@ class LMStudioVisionClient:
             )
             response.raise_for_status()
             return response.json()
+        except requests.HTTPError as exc:
+            response = getattr(exc, "response", None)
+            status_code = getattr(response, "status_code", "unknown")
+            response_text = ""
+            if response is not None:
+                try:
+                    response_text = response.text.strip()
+                except Exception:
+                    response_text = ""
+            detail = f"status={status_code}"
+            if response_text:
+                detail = f"{detail} body={response_text[:500]}"
+            raise RuntimeError(f"LM Studio request failed. {detail}") from exc
         except Exception as exc:
             raise RuntimeError("LM Studio request failed.") from exc
 

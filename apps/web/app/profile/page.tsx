@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -101,7 +101,7 @@ function calculateStreakDays(updatedAtValues: Array<string | undefined>) {
   return streak;
 }
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { report, paidGigs, fallbackMode } = useBloomSummary();
@@ -260,5 +260,13 @@ export default function ProfilePage() {
         onSave={handleGoalSave}
       />
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div className="px-5 pt-6 pb-8 text-sm font-bold text-slate-600">Loading profile...</div>}>
+      <ProfilePageContent />
+    </Suspense>
   );
 }

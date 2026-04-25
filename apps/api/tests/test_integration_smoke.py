@@ -1,7 +1,9 @@
 import base64
 import os
 from pathlib import Path
+import struct
 from types import SimpleNamespace
+import zlib
 
 import pytest
 
@@ -26,12 +28,26 @@ def _require_env(name: str) -> str:
 
 
 def _tiny_png_data_url() -> str:
-    payload = base64.b64encode(
-        bytes.fromhex(
-            "89504E470D0A1A0A0000000D49484452000000010000000108060000001F15C489"
-            "0000000D49444154789C6360606060000000040001F61738550000000049454E44AE426082"
-        )
-    ).decode("ascii")
+    width, height = 64, 64
+    raw_data = b""
+    for _ in range(height):
+        raw_data += b"\x00"
+        raw_data += bytes([80, 180, 120]) * width
+
+    def png_chunk(chunk_type: bytes, data: bytes) -> bytes:
+        chunk = chunk_type + data
+        crc = struct.pack(">I", zlib.crc32(chunk) & 0xFFFFFFFF)
+        return struct.pack(">I", len(data)) + chunk + crc
+
+    ihdr_data = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    idat_data = zlib.compress(raw_data)
+
+    png = b"\x89PNG\r\n\x1a\n"
+    png += png_chunk(b"IHDR", ihdr_data)
+    png += png_chunk(b"IDAT", idat_data)
+    png += png_chunk(b"IEND", b"")
+
+    payload = base64.b64encode(png).decode("ascii")
     return f"data:image/png;base64,{payload}"
 
 

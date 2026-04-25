@@ -115,7 +115,7 @@ def check_models(models_response: dict, requested_model: str | None) -> str | No
     models = models_response.get("data", [])
     if not models:
         fail("No models loaded in LM Studio.")
-        info("Load a vision-capable model (e.g., qwen3.5-9b-mlx) in LM Studio first.")
+        info("Load a vision-capable model (for example a Qwen VL model) in LM Studio first.")
         return None
 
     for m in models:

@@ -74,7 +74,7 @@ Backend `.env.example`:
 ```text
 BLOOM_AI_PROVIDER=lmstudio
 BLOOM_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
-BLOOM_LMSTUDIO_MODEL=qwen3.5-9b-mlx
+BLOOM_LMSTUDIO_MODEL=<your-vision-model-id>
 BLOOM_USE_FAKE_BUNQ=true
 BLOOM_STATE_PATH=data/state.json
 BLOOM_UPLOAD_DIR=data/uploads
