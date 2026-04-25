@@ -247,11 +247,11 @@ Default for local development.
 
 Behavior:
 
-- Fake AI can approve or reject deterministically.
+- LM Studio performs local AI verification.
 - Fake bunq can return simulated payment and balance.
-- API response uses `fallback_mode: false` if fake mode is intentionally configured for local development.
-- UI may show source as `fake`.
-- UI should indicate local demo mode in developer-facing areas.
+- API response uses `fallback_mode: false` when local AI and local fake bunq are intentionally configured for development.
+- UI may show source as `lmstudio` or `fake` depending on surface.
+- UI should indicate local payment demo mode in developer-facing areas when bunq is fake.
 
 ### AI Failure Fallback
 
@@ -302,9 +302,10 @@ Behavior:
 - Parent can create a gig.
 - Kid can claim it.
 - Kid can submit before and after photos.
-- Backend verifies with fake AI.
+- Backend verifies with local LM Studio AI.
 - Backend pays with fake bunq.
 - Frontend shows paid result and updated fake balance.
-- Real Claude and bunq can later replace fake adapters without changing frontend API contracts.
+- Anthropic Claude and real bunq can later replace local/dev adapters without changing frontend API contracts.
 - Duplicate completion attempts cannot create duplicate payments.
 - Uploaded photos are stored under ignored local storage, not committed.
+

@@ -3,6 +3,8 @@ from app.models.verification import VerificationResultModel
 
 
 class FakeVerificationClient:
+    mode = "fake"
+
     def verify(self, *, gig: dict, before_photo: dict, after_photo: dict) -> dict:
         checklist = gig.get("verification_checklist") or ["task improved"]
         tags = [str(item) for item in checklist[:4]]

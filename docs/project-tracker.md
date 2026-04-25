@@ -4,7 +4,7 @@ This document is the local source for GitHub issues and project cards.
 
 ## Milestones
 
-### M1 Core Loop Fake Adapters
+### M1 Core Loop Local AI + Fake bunq
 
 Goal: prove the full product journey without external dependencies.
 
@@ -13,7 +13,7 @@ Issues:
 - `backend` Create FastAPI app skeleton.
 - `backend` Add local JSON state repository.
 - `backend` Add gig domain service and state transitions.
-- `backend` Add fake verification adapter.
+- `backend` Add LM Studio verification adapter.
 - `backend` Add fake payment adapter.
 - `backend` Implement `GET /api/gigs`.
 - `backend` Implement `POST /api/gigs`.
@@ -29,13 +29,13 @@ Issues:
 
 Exit criteria:
 
-- One gig can move from open to paid using fake adapters.
+- One gig can move from open to paid using LM Studio AI and fake bunq.
 - The UI works on a 390px mobile viewport.
 - Refreshing the page does not lose gig state.
 
 ### M2 Real Claude + bunq
 
-Goal: replace fake adapters with real integrations behind stable interfaces.
+Goal: replace local payment simulation with real bunq and switch AI to hosted Claude when ready.
 
 Issues:
 

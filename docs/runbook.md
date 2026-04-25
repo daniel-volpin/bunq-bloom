@@ -1,8 +1,8 @@
 # Runbook
 
-This runbook covers the current M1 fake-adapter implementation.
+This runbook covers the current local LM Studio AI plus fake bunq payment setup.
 
-## Local Fake Mode
+## Local LM Studio Mode
 
 Backend:
 
@@ -13,6 +13,15 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -e ".[dev]"
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Backend `.env` defaults should be:
+
+```text
+BLOOM_AI_PROVIDER=lmstudio
+BLOOM_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
+BLOOM_LMSTUDIO_MODEL=qwen3.5-9b-mlx
+BLOOM_USE_FAKE_BUNQ=true
 ```
 
 Frontend:
@@ -40,7 +49,7 @@ gig list loads
 kid claims seeded gig
 before photo accepted
 after photo accepted
-fake verification approves
+LM Studio verification returns a structured result
 fake payment succeeds
 verdict screen shows updated fake balance
 ```
@@ -82,7 +91,7 @@ backend fetches updated kid balance
 
 ## Reset Local State
 
-Local fake state lives under `apps/api/data/` by default.
+Local state lives under `apps/api/data/` by default.
 
 Reset app state:
 

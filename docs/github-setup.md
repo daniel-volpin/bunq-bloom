@@ -42,7 +42,7 @@ gh label create demo-risk --color E11D21
 These milestones are already created.
 
 ```bash
-gh api repos/:owner/:repo/milestones -f title="M1 Core Loop Fake Adapters"
+gh api repos/:owner/:repo/milestones -f title="M1 Core Loop Local AI + Fake bunq"
 gh api repos/:owner/:repo/milestones -f title="M2 Real Claude + bunq"
 gh api repos/:owner/:repo/milestones -f title="M3 Mobile Camera UX"
 gh api repos/:owner/:repo/milestones -f title="M4 Demo Hardening"

@@ -84,8 +84,8 @@ The first coding milestone should produce:
 - A Next.js app shell with parent and kid paths stubbed.
 - A FastAPI app with the documented endpoints.
 - Local JSON state.
-- Fake Claude and fake bunq adapters.
-- One end-to-end flow using fake adapters.
+- LM Studio verification and fake bunq adapters.
+- One end-to-end flow using local AI and fake bunq.
 
-After that, swap fake adapters for real Claude and bunq sandbox clients behind the same interfaces.
+After that, switch to hosted Claude and real bunq sandbox clients behind the same interfaces.
 

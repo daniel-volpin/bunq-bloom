@@ -75,7 +75,7 @@ Backend owns the contract for `POST /api/gigs/{gig_id}/complete`. Any change to 
 
 ## Testing Strategy
 
-Start with fake adapters:
+Start with local AI and fake bunq:
 
 - gig state transition tests
 - repository read/write tests

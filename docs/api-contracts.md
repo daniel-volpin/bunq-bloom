@@ -213,8 +213,8 @@ Response on payment failure after approval:
 
 Mode values:
 
-- `fake_local`: intentionally configured local fake AI/payment mode
-- `real`: real Claude and/or bunq operation succeeded
+- `fake_local`: local fake payment mode was used while AI stayed real or test-only fixtures were used
+- `real`: real AI verification succeeded; bunq may be real or fake depending on environment
 - `ai_fallback`: Claude failed and explicit demo fallback was used
 - `bunq_fallback`: bunq failed and explicit demo fallback was used
 
@@ -249,7 +249,7 @@ Response:
 {
   "status": "ok",
   "integrations": {
-    "claude": "configured",
+    "ai": "configured",
     "bunq": "configured",
     "state": "ok"
   }

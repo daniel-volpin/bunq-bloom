@@ -1,5 +1,7 @@
 import base64
 
+import pytest
+
 from app.errors import AppError
 from app.integrations.fake_payment_client import FakePaymentClient
 from app.integrations.fake_verification_client import FakeVerificationClient
@@ -60,6 +62,14 @@ class FailThenSucceedPaymentClient(FakePaymentClient):
 class BrokenVerificationClient:
     def verify(self, **kwargs):
         raise RuntimeError("vision unavailable")
+
+
+class RealVerificationClient(FakeVerificationClient):
+    def verify(self, **kwargs):
+        result = super().verify(**kwargs)
+        result["raw_provider"] = "lmstudio"
+        result["raw_model"] = "qwen3.5-9b-mlx"
+        return result
 
 
 def test_seeded_gig_can_complete_with_fake_adapters(tmp_path):
@@ -165,6 +175,25 @@ def test_ai_fallback_can_approve_when_explicitly_enabled(tmp_path):
     assert result["verification"]["approved"] is True
     assert result["verification"]["confidence"] == 0
     assert result["verification"]["message_for_kid"].startswith("Demo fallback approved")
+    assert result["mode"] == "ai_fallback"
+    assert result["fallback_mode"] is True
+
+
+def test_real_ai_with_fake_payment_reports_real_mode(tmp_path):
+    service = make_service_with_clients(tmp_path, RealVerificationClient(), FakePaymentClient())
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+    result = service.complete_gig(
+        "gig_001",
+        after_image_base64=image_data_url(b"after"),
+        idempotency_key="attempt-001",
+    )
+
+    assert result["gig"]["status"] == "paid"
+    assert result["payment"]["status"] == "succeeded"
+    assert result["mode"] == "real"
+    assert result["fallback_mode"] is False
 
 
 def test_ai_failure_without_fallback_is_retryable_error(tmp_path):
@@ -173,15 +202,36 @@ def test_ai_failure_without_fallback_is_retryable_error(tmp_path):
     service.claim_gig("gig_001")
     service.add_before_photo("gig_001", image_data_url(b"before"))
 
-    try:
+    with pytest.raises(AppError, match="verification_failed") as exc_info:
         service.complete_gig(
             "gig_001",
             after_image_base64=image_data_url(b"after"),
             idempotency_key="attempt-001",
         )
-    except AppError as exc:
-        assert exc.code == "verification_failed"
-        assert exc.status_code == 502
-        assert exc.retryable is True
-    else:
-        raise AssertionError("Expected verification failure")
+
+    assert exc_info.value.code == "verification_failed"
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.retryable is True
+
+
+class UnconfiguredVerificationClient:
+    def verify(self, **kwargs):
+        raise AppError("verification_not_configured", "AI provider is not configured.", status_code=500)
+
+
+def test_unconfigured_ai_is_reported_without_masking_as_retryable_failure(tmp_path):
+    service = make_service_with_clients(tmp_path, UnconfiguredVerificationClient(), FakePaymentClient())
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+
+    with pytest.raises(AppError, match="verification_not_configured") as exc_info:
+        service.complete_gig(
+            "gig_001",
+            after_image_base64=image_data_url(b"after"),
+            idempotency_key="attempt-001",
+        )
+
+    assert exc_info.value.code == "verification_not_configured"
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.retryable is False

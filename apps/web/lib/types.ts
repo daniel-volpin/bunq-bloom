@@ -110,11 +110,24 @@ export type BalanceResponse = {
   fallback_mode: boolean;
 };
 
+export type IntegrationStatus = {
+  mode: string;
+  status: "configured" | "not_configured";
+  missing_config: string[];
+};
+
+export type PathStatus = {
+  status: "ok" | "not_ready";
+  missing_config: string[];
+};
+
 export type HealthResponse = {
   status: "ok" | string;
+  readiness_status: "ready" | "not_ready";
   integrations: {
-    claude: string;
-    bunq: string;
-    state: string;
+    ai: IntegrationStatus;
+    bunq: IntegrationStatus;
+    state: PathStatus;
+    uploads: PathStatus;
   };
 };

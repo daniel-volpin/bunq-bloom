@@ -94,11 +94,11 @@ This endpoint joins camera upload, AI verification, bunq payment, idempotency, b
 
 Good first parallel split:
 
-- Backend: fake-adapter FastAPI endpoints, state transitions, tests.
+- Backend: local-AI FastAPI endpoints, state transitions, tests.
 - Frontend: app shell, typed API client, screens against documented fixtures.
 - UI/UX: camera flow, completion state copy, fallback-mode copy.
 
-Avoid real Claude and real bunq work until the fake vertical slice works.
+Avoid real bunq work until the LM Studio local vertical slice works.
 
 ## Delegation Prompt Checklist
 

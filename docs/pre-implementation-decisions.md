@@ -108,18 +108,18 @@ Failure handling:
 
 ## Decision 5: Fallback Honesty
 
-The product can use fake adapters locally and demo fallbacks when explicitly enabled, but the UI must be honest.
+The product can use LM Studio locally for AI, fake bunq locally for payment if needed, and demo fallbacks when explicitly enabled, but the UI must be honest.
 
 Modes:
 
-- `fake_local`: expected local mode, not a production claim.
-- `real`: Claude and bunq actually succeeded.
+- `fake_local`: local fake payment mode, not a production claim.
+- `real`: real AI verification succeeded, and bunq may be real or fake depending on environment.
 - `ai_fallback`: Claude failed and backend used fallback behavior.
 - `bunq_fallback`: bunq failed and backend used simulated behavior.
 
 Rules:
 
-- Fake local mode may show "Local demo mode" in developer-facing areas.
+- Fake local mode may show "Local payment demo mode" in developer-facing areas.
 - Real mode may say "AI verified" and "Paid with bunq sandbox".
 - AI fallback must not say AI verified the chore.
 - bunq fallback must not say bunq payment succeeded.
@@ -127,15 +127,15 @@ Rules:
 
 ## Decision 6: First Vertical Slice
 
-The first implementation slice is not "backend scaffold" or "frontend scaffold" in isolation. It is a full fake-adapter product loop.
+The first implementation slice is not "backend scaffold" or "frontend scaffold" in isolation. It is a full local product loop.
 
 Slice:
 
 ```text
 seeded gig
   -> kid claims
-  -> fake before/after upload
-  -> fake verification approved
+  -> before/after upload
+  -> local AI verification approved
   -> fake payment succeeds
   -> verdict screen shows updated fake balance
 ```

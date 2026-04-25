@@ -11,17 +11,17 @@ router = APIRouter(tags=["health"])
 @router.get("/api/health")
 def health() -> dict:
     settings = get_settings()
-    claude = _integration_status(settings.claude_mode(), settings.claude_missing_config_codes())
+    ai = _integration_status(settings.ai_mode(), settings.ai_missing_config_codes())
     bunq = _integration_status(settings.bunq_mode(), settings.bunq_missing_config_codes())
     state = _state_status(settings.state_path)
     uploads = _directory_status(settings.upload_dir, "upload_dir")
-    readiness_status = "ready" if _all_ok(claude, bunq, state, uploads) else "not_ready"
+    readiness_status = "ready" if _all_ok(ai, bunq, state, uploads) else "not_ready"
 
     return {
         "status": "ok",
         "readiness_status": readiness_status,
         "integrations": {
-            "claude": claude,
+            "ai": ai,
             "bunq": bunq,
             "state": state,
             "uploads": uploads,

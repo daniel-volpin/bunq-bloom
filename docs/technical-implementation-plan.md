@@ -62,7 +62,7 @@ Shared:
 
 - Add root `Makefile` only if it reduces repeated command friction.
 - Add `.env.example` files, never real `.env` files.
-- Use fake adapters by default so the app works without credentials.
+- Use LM Studio for local AI by default and fake bunq locally so the app works without hosted AI or banking credentials.
 - Build the first vertical slice across backend and frontend instead of completing one side in isolation.
 - Use `docs/agents/orchestration.md` when splitting work across multiple coding agents.
 
@@ -71,7 +71,9 @@ Shared:
 Backend `.env.example`:
 
 ```text
-BLOOM_USE_FAKE_AI=true
+BLOOM_AI_PROVIDER=lmstudio
+BLOOM_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
+BLOOM_LMSTUDIO_MODEL=qwen3.5-9b-mlx
 BLOOM_USE_FAKE_BUNQ=true
 BLOOM_STATE_PATH=data/state.json
 BLOOM_UPLOAD_DIR=data/uploads
@@ -93,7 +95,7 @@ Rules:
 
 - The frontend must not receive `ANTHROPIC_API_KEY`, `BUNQ_API_KEY`, session tokens, or bunq context data.
 - Real integrations are opt-in with explicit env flags.
-- Default local development must use fake AI and fake bunq.
+- Default local development must use LM Studio for AI and fake bunq for payment.
 
 ## Backend Design
 
@@ -156,9 +158,9 @@ Avoid adding global state until the flow proves it needs it.
 
 ## Adapter Strategy
 
-Start with fakes:
+Start with local-friendly adapters:
 
-- `FakeVerificationClient` returns deterministic approval/rejection.
+- `LMStudioVisionClient` handles local AI verification.
 - `FakePaymentClient` simulates payment id and balance.
 
 Then add real adapters behind the same interfaces:
@@ -236,7 +238,7 @@ Rules:
 First vertical slice:
 
 ```text
-seeded gig -> claim -> fake before/after upload -> fake verification -> fake payment -> verdict screen
+seeded gig -> claim -> before/after upload -> LM Studio verification -> fake payment -> verdict screen
 ```
 
 Sequence:
@@ -245,7 +247,7 @@ Sequence:
 2. Add domain/API models.
 3. Add local JSON repository, photo repository, and seed data.
 4. Add gig service state transitions and idempotency storage.
-5. Add fake verification and fake payment clients.
+5. Add LM Studio verification and fake payment clients.
 6. Implement gig and balance endpoints.
 7. Scaffold frontend app shell.
 8. Add typed API client.
@@ -259,8 +261,8 @@ Sequence:
 
 Safe parallel tracks after the API contract is agreed:
 
-- Backend agent: fake-adapter endpoints, domain service, local state, idempotency tests.
-- Frontend agent: app shell, typed API client, gig list, camera flow against documented fake responses.
+- Backend agent: local-AI endpoints, domain service, local state, idempotency tests.
+- Frontend agent: app shell, typed API client, gig list, camera flow against documented local response fixtures.
 - UI/UX agent: camera state design, completion screen hierarchy, fallback/retry copy.
 
 Do not parallelize real bunq payment work with completion endpoint contract changes unless file ownership and response shapes are already stable.
@@ -269,7 +271,7 @@ The orchestrating agent should integrate these tracks and run the smallest relev
 
 ## Real Integration Sequence
 
-After fake end-to-end flow works:
+After local LM Studio end-to-end flow works:
 
 1. Add Claude Vision client and structured response parsing.
 2. Add bunq sandbox payment client using `hackathon_toolkit-main/bunq_client.py` as reference.
@@ -288,14 +290,14 @@ Minimum checks:
 - frontend typecheck
 - frontend lint if configured
 
-CI should verify the fake-adapter path first. Real Claude and bunq smoke tests must remain opt-in.
+CI should verify the local LM Studio path and fake bunq path first. Real Claude and bunq smoke tests must remain opt-in.
 
 ## Done Criteria Before Polish
 
 The first implementation phase is done when:
 
 - A teammate can start backend and frontend locally from docs.
-- The core loop works with fake adapters and seeded data.
+- The core loop works with LM Studio AI, fake bunq, and seeded data.
 - A created gig can reach `paid`.
 - The UI shows verdict, payment status, and updated balance.
 - Backend tests cover core state transitions.

@@ -1,5 +1,6 @@
+from typing import Any
+
 from app.errors import AppError
-from app.integrations.fake_verification_client import FakeVerificationClient
 from app.models.domain import new_id, now_iso
 from app.models.verification import VerificationResultModel
 from app.repositories.photo_repository import PhotoRepository
@@ -13,7 +14,7 @@ class GigService:
         *,
         state_repository: StateRepository,
         photo_repository: PhotoRepository,
-        verification_client: FakeVerificationClient,
+        verification_client: Any,
         payment_service: PaymentService,
         allow_ai_fallback: bool = False,
     ):
@@ -122,7 +123,7 @@ class GigService:
         if not verification["approved"]:
             gig["status"] = "rejected"
             gig["updated_at"] = now_iso()
-            response = self._completion_response(gig, verification, None, None, mode="fake_local")
+            response = self._completion_response(gig, verification, None, None)
             self._store_attempt(state, attempt_id, response, verification["id"], None, after_photo_id)
             self.state_repository.save(state)
             return response
@@ -148,7 +149,6 @@ class GigService:
                 verification,
                 payment,
                 None,
-                mode=getattr(self.payment_service.payment_client, "mode", "fake_local"),
             )
             self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
             self.state_repository.save(state)
@@ -162,7 +162,6 @@ class GigService:
             verification,
             payment,
             kid_balance,
-            mode=getattr(self.payment_service.payment_client, "mode", "fake_local"),
         )
         self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
         self.state_repository.save(state)
@@ -172,10 +171,11 @@ class GigService:
         state = self.state_repository.load()
         balance = self.payment_service.get_kid_balance(state)
         self.state_repository.save(state)
+        mode = getattr(self.payment_service.payment_client, "mode", "fake_local")
         return {
             "balance": balance,
-            "mode": getattr(self.payment_service.payment_client, "mode", "fake_local"),
-            "fallback_mode": False,
+            "mode": mode,
+            "fallback_mode": mode in ("bunq_fallback",),
         }
 
     def _get_gig(self, state: dict, gig_id: str) -> dict:
@@ -210,6 +210,8 @@ class GigService:
                 after_photo=after_photo,
             )
             return VerificationResultModel.model_validate(raw_verification).model_dump()
+        except AppError:
+            raise
         except Exception as exc:
             if not self.allow_ai_fallback:
                 raise AppError(
@@ -236,17 +238,28 @@ class GigService:
         verification: dict | None,
         payment: dict | None,
         kid_balance: dict | None,
-        *,
-        mode: str,
     ) -> dict:
+        mode = self._response_mode(verification)
         return {
             "gig": gig,
             "verification": self._public_verification(verification) if verification else None,
             "payment": self._public_payment(payment) if payment else None,
             "kid_balance": kid_balance,
             "mode": mode,
-            "fallback_mode": False,
+            "fallback_mode": mode in ("ai_fallback", "bunq_fallback"),
         }
+
+    def _response_mode(self, verification: dict | None) -> str:
+        verification_provider = (verification or {}).get("raw_provider")
+        payment_mode = getattr(self.payment_service.payment_client, "mode", "fake_local")
+
+        if verification_provider == "fallback":
+            return "ai_fallback"
+        if payment_mode == "bunq_fallback":
+            return "bunq_fallback"
+        if verification_provider == "fake" and payment_mode == "fake_local":
+            return "fake_local"
+        return "real"
 
     def _paid_response(self, state: dict, gig: dict) -> dict:
         verification = state["verification_results"].get(gig.get("verification_result_id"))
@@ -256,7 +269,6 @@ class GigService:
             verification,
             payment,
             state["balances"]["kid_001"],
-            mode=getattr(self.payment_service.payment_client, "mode", "fake_local"),
         )
 
     def _public_verification(self, verification: dict) -> dict:
