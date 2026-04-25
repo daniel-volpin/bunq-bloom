@@ -29,7 +29,7 @@ export default function GigsPage() {
 
   return (
     <div className="pb-8">
-      <Header actionHref="/gigs/new" actionLabel="Post gig" />
+      <Header actionHref="/parent/gigs/new" actionLabel="Post gig" />
 
       <div className="px-5 pt-2">
         <div className="flex items-center justify-between gap-3">

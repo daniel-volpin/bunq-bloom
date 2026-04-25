@@ -257,7 +257,7 @@ export default function ProfilePage() {
       </main>
 
       <SavingsGoalDialog
-        key={`${goalOpen}-${goalState.label || report?.highlights[0]?.title || ""}-${goalState.amount}`}
+        key={`${goalInitialLabel}:${goalInitialAmount}`}
         open={dialogOpen}
         onOpenChange={handleGoalOpenChange}
         initialLabel={goalInitialLabel}
@@ -267,4 +267,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
