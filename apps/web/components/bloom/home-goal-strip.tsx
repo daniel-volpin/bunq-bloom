@@ -57,5 +57,5 @@ export function HomeGoalStrip({
     return strip;
   }
 
-  return <section className="px-5 pt-4">{strip}</section>;
+  return <section className="px-5 pt-3">{strip}</section>;
 }

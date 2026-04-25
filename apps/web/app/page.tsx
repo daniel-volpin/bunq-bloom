@@ -12,7 +12,7 @@ import { useSavedGoal } from "@/lib/use-saved-goal";
 
 function LoadingState() {
   return (
-    <div className="space-y-4 px-5 pt-4">
+    <div className="space-y-3 px-5 pt-3">
       <div className="h-48 animate-pulse rounded-3xl bg-white/70" />
       <div className="h-28 animate-pulse rounded-3xl bg-white/70" />
       <div className="h-20 animate-pulse rounded-3xl bg-white/70" />
@@ -54,7 +54,7 @@ export default function HomePage() {
       <Header />
 
       {savedGoal && balanceResponse ? (
-        <section className="px-5 pt-5">
+        <section className="px-5 pt-4">
           <div className="overflow-hidden rounded-3xl shadow-card">
             <HeroCard
               balanceAmount={balanceResponse.balance.amount}
@@ -72,7 +72,7 @@ export default function HomePage() {
       )}
 
       {fallbackMode ? (
-        <section className="px-5 pt-4">
+        <section className="px-5 pt-3">
           <div className="rounded-3xl bg-bloom-sky/10 p-4 text-sm leading-6 text-slate-700 shadow-card">
             Bloom is running with demo fallback enabled right now.
             {modes.length > 0 ? ` Modes: ${modes.join(", ")}.` : ""}
@@ -81,7 +81,7 @@ export default function HomePage() {
       ) : null}
 
       {error ? (
-        <section className="px-5 pt-4">
+        <section className="px-5 pt-3">
           <div className="rounded-3xl border border-bloom-coral/20 bg-bloom-coral/10 p-4 text-sm text-slate-700 shadow-card">
             <p className="font-extrabold text-foreground">Some data could not load.</p>
             <p className="mt-1 leading-6">{error}</p>
@@ -103,7 +103,7 @@ export default function HomePage() {
           {moreOpenGigs.length > 0 ? <OpenGigs gigs={moreOpenGigs} /> : null}
         </>
       ) : (
-        <section className="px-5 pt-6">
+        <section className="px-5 pt-4">
           <div className="rounded-3xl bg-card p-6 text-center shadow-card">
             <Sparkles className="mx-auto h-8 w-8 text-bloom-green" />
             <p className="mt-3 text-base font-extrabold text-foreground">No open gigs yet</p>
@@ -122,7 +122,7 @@ export default function HomePage() {
       )}
 
       {report ? (
-        <section className="px-5 pt-6">
+        <section className="px-5 pt-4">
           <div className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#fff7d6_0%,#fffdf7_48%,#ddf6ee_100%)] p-5 shadow-card">
             <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-petal-blue/60 blur-2xl" />
             <div className="pointer-events-none absolute -left-8 bottom-0 h-24 w-24 rounded-full bg-petal-coral/45 blur-2xl" />
@@ -155,7 +155,7 @@ export default function HomePage() {
           </div>
         </section>
       ) : reportLoading ? (
-        <section className="px-5 pt-6">
+        <section className="px-5 pt-4">
           <div className="rounded-3xl bg-card p-5 shadow-card">
             <div className="h-3 w-28 animate-pulse rounded-full bg-slate-100" />
             <div className="mt-3 h-6 w-40 animate-pulse rounded-full bg-slate-100" />

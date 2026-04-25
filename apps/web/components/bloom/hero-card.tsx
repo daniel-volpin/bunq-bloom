@@ -25,7 +25,7 @@ export function HeroCard({
           className="pointer-events-none absolute inset-x-0 bottom-0 h-auto w-full select-none opacity-70"
         />
 
-        <div className="relative flex items-stretch gap-2 p-5 pb-6">
+        <div className="relative flex items-stretch gap-2 p-5 pb-5">
           <div className="flex flex-1 flex-col justify-between">
             <div>
               <h2 className="text-[22px] font-extrabold leading-tight text-bloom-green-deep">
@@ -36,7 +36,7 @@ export function HeroCard({
               </p>
             </div>
 
-            <div className="mt-5">
+            <div className="mt-4">
               {balanceAmountLoading ? (
                 <div className="h-12 w-36 animate-pulse rounded-full bg-bloom-green/15" />
               ) : (
@@ -73,5 +73,5 @@ export function HeroCard({
     return hero;
   }
 
-  return <section className="px-5 pt-5 pb-3">{hero}</section>;
+  return <section className="px-5 pt-4 pb-2">{hero}</section>;
 }

@@ -4,7 +4,7 @@ import type { Gig } from "@/lib/types";
 
 export function HomeFeaturedGig({ gig }: { gig: Gig }) {
   return (
-    <section className="px-5 pt-5">
+    <section className="px-5 pt-4">
       <div className="mb-3 px-1">
         <p className="text-[11px] font-black uppercase tracking-[0.18em] text-bloom-green-deep/70">
           Best next gig
