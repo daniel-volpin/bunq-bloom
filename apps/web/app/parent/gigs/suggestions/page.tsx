@@ -27,6 +27,7 @@ export default function ParentGigSuggestionsPage() {
         if (!active) {
           return;
         }
+        setError(null);
         setSuggestions(response.suggestions);
         setLoading(false);
       },

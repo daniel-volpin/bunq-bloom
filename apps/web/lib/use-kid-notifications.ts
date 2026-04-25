@@ -17,6 +17,7 @@ export function useKidNotifications() {
         if (!active) {
           return;
         }
+        setError(null);
         setNotifications(response.notifications);
         setLoading(false);
       },
