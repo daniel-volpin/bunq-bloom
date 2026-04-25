@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     bunq_api_key: str | None = Field(default=None, alias="BUNQ_API_KEY")
     bunq_parent_account_id: str | None = Field(default=None, alias="BUNQ_PARENT_ACCOUNT_ID")
     bunq_kid_account_id: str | None = Field(default=None, alias="BUNQ_KID_ACCOUNT_ID")
+    bunq_kid_account_iban: str | None = Field(default=None, alias="BUNQ_KID_ACCOUNT_IBAN")
 
     def ai_mode(self) -> str:
         return "real"

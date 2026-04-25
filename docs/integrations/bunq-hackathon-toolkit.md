@@ -119,6 +119,7 @@ Configure:
 
 - `BUNQ_PARENT_ACCOUNT_ID`
 - `BUNQ_KID_ACCOUNT_ID`
+- `BUNQ_KID_ACCOUNT_IBAN`
 
 Use the setup helper to select/create these accounts without printing secrets:
 
@@ -129,6 +130,8 @@ python scripts/setup_bunq_sandbox.py --create-missing-accounts --fund-parent 500
 ```
 
 This avoids managing two API keys and two session contexts. If bunq sandbox rejects same-user account transfers, keep the Bloom `PaymentClient` interface and change only the bunq adapter internals to support two sandbox users.
+
+`BUNQ_KID_ACCOUNT_IBAN` is optional but strongly recommended for demo runs. Without it, the payment adapter must list monetary accounts to resolve the kid IBAN before each payment, which burns one of bunq's low GET rate-limit slots.
 
 ## Endpoint Cheatsheet For Bloom
 
@@ -235,7 +238,7 @@ Implications:
 
 - Reuse `bunq_context.json` during local runs.
 - Avoid repeated session creation in health checks.
-- Cache account IDs after resolving them.
+- Cache account IDs and the kid IBAN after resolving them.
 - Keep balance refreshes targeted.
 - Add retry/backoff only around safe operations.
 

@@ -155,6 +155,7 @@ def print_env_lines(parent: AccountSummary, kid: AccountSummary) -> None:
     print("BLOOM_USE_FAKE_BUNQ=false")
     print(f"BUNQ_PARENT_ACCOUNT_ID={parent.id}")
     print(f"BUNQ_KID_ACCOUNT_ID={kid.id}")
+    print(f"BUNQ_KID_ACCOUNT_IBAN={kid.iban}")
 
 
 def print_bunq_error(exc: Exception) -> None:
@@ -224,7 +225,7 @@ def main() -> int:
     client = BunqClient(api_key=api_key, sandbox=True)
 
     try:
-        print("Authenticating with bunq sandbox...")
+        print("Authenticating with bunq sandbox...", flush=True)
         client.authenticate()
         print(f"Authenticated sandbox user id: {client.user_id}")
 

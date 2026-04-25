@@ -113,6 +113,7 @@ The setup helper prints only non-secret account IDs. Add those values to `apps/a
 BLOOM_USE_FAKE_BUNQ=false
 BUNQ_PARENT_ACCOUNT_ID=...
 BUNQ_KID_ACCOUNT_ID=...
+BUNQ_KID_ACCOUNT_IBAN=...
 ```
 
 Expected smoke test:
@@ -168,7 +169,13 @@ BUNQ_KID_ACCOUNT_ID
 BLOOM_BUNQ_TOOLKIT_PATH
 ```
 
-`BUNQ_PARENT_ACCOUNT_ID` and `BUNQ_KID_ACCOUNT_ID` can be selected by `python scripts/setup_bunq_sandbox.py`.
+Recommended:
+
+```text
+BUNQ_KID_ACCOUNT_IBAN
+```
+
+`BUNQ_PARENT_ACCOUNT_ID`, `BUNQ_KID_ACCOUNT_ID`, and `BUNQ_KID_ACCOUNT_IBAN` can be selected by `python scripts/setup_bunq_sandbox.py`. Keeping the kid IBAN in local config avoids one bunq account-list request before every payment.
 
 Tiny bunq payment smoke test additionally requires:
 

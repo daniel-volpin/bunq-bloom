@@ -1,6 +1,7 @@
 import pytest
 from requests import ConnectionError, HTTPError, Response
 
+import app.integrations.bunq_payment_client as bunq_module
 from app.errors import AppError
 from app.integrations.bunq_payment_client import BunqPaymentClient
 from app.settings import Settings
@@ -14,9 +15,11 @@ class FakeBunqToolkitClient:
         self.include_iban = include_iban
         self.malformed_post_response = malformed_post_response
         self.posts = []
+        self.get_calls = 0
 
     def get(self, endpoint: str):
         assert endpoint == "user/42/monetary-account-bank"
+        self.get_calls += 1
         kid_aliases = []
         if self.include_iban:
             kid_aliases.append({"type": "IBAN", "value": "NL00BUNQ0123456789"})
@@ -59,11 +62,36 @@ class HttpErrorBunqToolkitClient(FakeBunqToolkitClient):
         raise error
 
 
+class FlakyGetBunqToolkitClient(FakeBunqToolkitClient):
+    def get(self, endpoint: str):
+        if self.get_calls == 0:
+            self.get_calls += 1
+            response = Response()
+            response.status_code = 429
+            error = HTTPError("429 error")
+            error.response = response
+            raise error
+        return super().get(endpoint)
+
+
 def make_client(fake_toolkit_client: FakeBunqToolkitClient) -> BunqPaymentClient:
     settings = Settings(
         BUNQ_API_KEY="sandbox-api-key",
         BUNQ_PARENT_ACCOUNT_ID="100",
         BUNQ_KID_ACCOUNT_ID="200",
+        BUNQ_KID_ACCOUNT_IBAN="",
+    )
+    client = BunqPaymentClient(settings)
+    client._client = fake_toolkit_client
+    return client
+
+
+def make_client_with_kid_iban(fake_toolkit_client: FakeBunqToolkitClient) -> BunqPaymentClient:
+    settings = Settings(
+        BUNQ_API_KEY="sandbox-api-key",
+        BUNQ_PARENT_ACCOUNT_ID="100",
+        BUNQ_KID_ACCOUNT_ID="200",
+        BUNQ_KID_ACCOUNT_IBAN="NL00BUNQCONFIGUREDIBAN",
     )
     client = BunqPaymentClient(settings)
     client._client = fake_toolkit_client
@@ -113,6 +141,22 @@ def test_bunq_payment_client_creates_parent_to_kid_payment():
     ]
 
 
+def test_bunq_payment_client_uses_configured_kid_iban_without_account_lookup():
+    fake_toolkit_client = FakeBunqToolkitClient(include_iban=False)
+    client = make_client_with_kid_iban(fake_toolkit_client)
+
+    result = client.create_parent_to_kid_payment(
+        amount="5.00",
+        currency="EUR",
+        description="bunq Bloom reward: Clean your room",
+        idempotency_key="gig_001:attempt-001",
+    )
+
+    assert result["status"] == "succeeded"
+    assert fake_toolkit_client.get_calls == 0
+    assert fake_toolkit_client.posts[0][1]["counterparty_alias"]["value"] == "NL00BUNQCONFIGUREDIBAN"
+
+
 def test_bunq_payment_client_gets_kid_balance():
     client = make_client(FakeBunqToolkitClient())
 
@@ -121,6 +165,15 @@ def test_bunq_payment_client_gets_kid_balance():
         "currency": "EUR",
         "source": "bunq",
     }
+
+
+def test_bunq_payment_client_retries_safe_account_reads(monkeypatch):
+    monkeypatch.setattr(bunq_module, "SAFE_READ_RETRY_DELAYS_SECONDS", (0,))
+    fake_toolkit_client = FlakyGetBunqToolkitClient()
+    client = make_client(fake_toolkit_client)
+
+    assert client.get_kid_balance()["amount"] == "27.50"
+    assert fake_toolkit_client.get_calls == 2
 
 
 def test_bunq_payment_client_requires_kid_iban_alias():

@@ -1,4 +1,6 @@
 import sys
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -6,6 +8,9 @@ from requests import HTTPError, RequestException
 
 from app.errors import AppError
 from app.settings import Settings
+
+
+SAFE_READ_RETRY_DELAYS_SECONDS = (0.5, 1.5)
 
 
 class BunqPaymentClient:
@@ -29,6 +34,7 @@ class BunqPaymentClient:
             )
         self.parent_account_id = settings.bunq_parent_account_id
         self.kid_account_id = settings.bunq_kid_account_id
+        self._kid_account_iban = settings.bunq_kid_account_iban
         self._client = None
 
     def create_parent_to_kid_payment(
@@ -120,7 +126,7 @@ class BunqPaymentClient:
 
         client = BunqClient(api_key=self.settings.bunq_api_key, sandbox=True)
         try:
-            client.authenticate()
+            self._retry_safe_read(client.authenticate)
         except RequestException as exc:
             raise AppError(
                 "payment_network_failed",
@@ -152,9 +158,12 @@ class BunqPaymentClient:
         return AppError("payment_failed", "bunq sandbox payment failed.", status_code=502, retryable=True)
 
     def _get_kid_account_iban(self, client: Any) -> str:
+        if self._kid_account_iban:
+            return self._kid_account_iban
         account = self._get_account(client, self.kid_account_id)
         for alias in account.get("alias", []):
             if alias.get("type") == "IBAN" and alias.get("value"):
+                self._kid_account_iban = alias["value"]
                 return alias["value"]
         raise AppError(
             "payment_failed",
@@ -163,9 +172,29 @@ class BunqPaymentClient:
         )
 
     def _get_account(self, client: Any, account_id: str | None) -> dict:
-        accounts = client.get(f"user/{client.user_id}/monetary-account-bank")
+        accounts = self._retry_safe_read(lambda: client.get(f"user/{client.user_id}/monetary-account-bank"))
         for item in accounts:
             account = item.get("MonetaryAccountBank", {})
             if str(account.get("id")) == str(account_id):
                 return account
         raise AppError("payment_failed", "Configured bunq account was not found.", status_code=500)
+
+    def _retry_safe_read(self, operation: Callable[[], Any]) -> Any:
+        last_exc = None
+        for attempt in range(len(SAFE_READ_RETRY_DELAYS_SECONDS) + 1):
+            try:
+                return operation()
+            except HTTPError as exc:
+                last_exc = exc
+                if not self._is_retryable_read_http_error(exc) or attempt == len(SAFE_READ_RETRY_DELAYS_SECONDS):
+                    raise
+            except RequestException as exc:
+                last_exc = exc
+                if attempt == len(SAFE_READ_RETRY_DELAYS_SECONDS):
+                    raise
+            time.sleep(SAFE_READ_RETRY_DELAYS_SECONDS[attempt])
+        raise last_exc  # pragma: no cover
+
+    def _is_retryable_read_http_error(self, exc: HTTPError) -> bool:
+        status_code = exc.response.status_code if exc.response is not None else None
+        return status_code in {429, 500, 502, 503, 504}
