@@ -6,12 +6,41 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, Plus, Sparkles, X } from "lucide-react";
 import { ApiClientError, apiClient } from "@/lib/api-client";
 
+type ChecklistStep = {
+  id: string;
+  value: string;
+};
+
+const MAX_CHECKLIST_STEPS = 6;
+
+function newChecklistStep(value = ""): ChecklistStep {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return { id: crypto.randomUUID(), value };
+  }
+
+  return { id: `step_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, value };
+}
+
+function normalizeRewardAmount(value: string): string | null {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed.toFixed(2);
+}
+
 export default function NewGigPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [rewardAmount, setRewardAmount] = useState("5.00");
-  const [steps, setSteps] = useState<string[]>(["bed made", "floor clear", "desk tidy"]);
+  const [steps, setSteps] = useState<ChecklistStep[]>([
+    newChecklistStep("bed made"),
+    newChecklistStep("floor clear"),
+    newChecklistStep("desk tidy")
+  ]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,12 +50,23 @@ export default function NewGigPage() {
     setError(null);
 
     try {
-      const checklist = steps.map((item) => item.trim()).filter(Boolean);
+      const checklist = steps.map((item) => item.value.trim()).filter(Boolean);
+      const normalizedRewardAmount = normalizeRewardAmount(rewardAmount);
+
+      if (!normalizedRewardAmount) {
+        setError("Reward amount must be a valid number greater than zero.");
+        return;
+      }
+
+      if (checklist.length === 0) {
+        setError("Add at least one checklist step so Bloom knows what to verify.");
+        return;
+      }
 
       await apiClient.createGig({
         title,
         description,
-        reward_amount: rewardAmount,
+        reward_amount: normalizedRewardAmount,
         currency: "EUR",
         verification_checklist: checklist
       });
@@ -116,13 +156,15 @@ export default function NewGigPage() {
           </span>
           <div className="mt-3 space-y-2">
             {steps.map((step, index) => (
-              <div key={`${index}-${step}`} className="flex items-center gap-2">
+              <div key={step.id} className="flex items-center gap-2">
                 <input
-                  value={step}
+                  value={step.value}
                   onChange={(event) => {
                     setSteps((current) =>
                       current.map((currentStep, currentIndex) =>
-                        currentIndex === index ? event.target.value : currentStep
+                        currentIndex === index
+                          ? { ...currentStep, value: event.target.value }
+                          : currentStep
                       )
                     );
                   }}
@@ -145,10 +187,10 @@ export default function NewGigPage() {
             ))}
           </div>
 
-          {steps.length < 6 ? (
+          {steps.length < MAX_CHECKLIST_STEPS ? (
             <button
               type="button"
-              onClick={() => setSteps((current) => [...current, ""])}
+              onClick={() => setSteps((current) => [...current, newChecklistStep()])}
               className="tap-target mt-3 inline-flex items-center gap-1.5 rounded-full bg-bloom-green/10 px-4 py-2 text-sm font-bold text-bloom-green-deep"
             >
               <Plus className="h-4 w-4" />

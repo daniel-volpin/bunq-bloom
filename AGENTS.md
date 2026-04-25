@@ -30,8 +30,8 @@ Important local rules:
 
 Frontend:
 
-- Next.js 14
-- React 18
+- Next.js 16
+- React 19
 - TypeScript
 - Tailwind CSS
 - Lucide icons
@@ -42,13 +42,13 @@ Backend:
 - Python
 - FastAPI
 - bunq official hackathon toolkit
-- Anthropic Claude Vision/Text
+- LM Studio and Anthropic Claude Vision/Text
 - Local JSON state for MVP persistence
 
 Integrations:
 
 - bunq sandbox API for real sandbox payments and balances
-- Claude Vision for before/after photo verification
+- LM Studio or Claude Vision for before/after photo verification
 
 ## Source Of Truth
 
@@ -106,13 +106,13 @@ Rules:
 
 ## Build Priorities
 
-1. Build the end-to-end gig completion loop with fake adapters.
-2. Swap fake adapters for real Claude and bunq sandbox clients behind stable interfaces.
+1. Keep the end-to-end gig completion loop reliable.
+2. Preserve fake, LM Studio, Claude, and bunq sandbox adapters behind stable interfaces.
 3. Make browser camera capture feel native on mobile.
-4. Add idempotency and retry safety around verification and payment.
-5. Polish only after the core flow is reliable.
+4. Keep idempotency, retry safety, and rate-limit handling around verification and payment.
+5. Polish only when it does not weaken the core flow.
 
-Defer:
+Lower priority unless explicitly requested:
 
 - Weekly Bloom Report
 - Snap & Learn

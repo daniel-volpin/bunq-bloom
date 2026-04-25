@@ -19,6 +19,12 @@ export type CompletionMode =
 
 export type ApiMode = CompletionMode;
 
+export type AiMode = "real" | "fake" | "fallback";
+
+export type PaymentMode = "real" | "fake_local" | "bunq_fallback";
+
+export type BalanceRefreshStatus = "pending" | "ok" | "failed";
+
 export type BalanceSource = "bunq" | "fake";
 
 export type ApiErrorBody = {
@@ -97,6 +103,8 @@ export type PaymentResult = {
   amount: string;
   currency: Currency;
   bunq_payment_id?: string;
+  merchant_reference?: string;
+  error_code?: string;
   retryable?: boolean;
 };
 
@@ -112,7 +120,11 @@ export type CompleteGigResponse = {
   payment: PaymentResult | null;
   kid_balance: KidBalance | null;
   mode: CompletionMode;
+  ai_mode: AiMode;
+  payment_mode: PaymentMode;
   fallback_mode: boolean;
+  balance_refresh_status?: BalanceRefreshStatus;
+  balance_refresh_error?: string;
 };
 
 export type RetryPaymentResponse = CompleteGigResponse;
@@ -144,8 +156,8 @@ export type SnapAndLearnResponse = {
   analysis: SnapAndLearnAnalysis;
   kid_balance: KidBalance;
   mode: ApiMode;
-  ai_mode: "real" | "fake" | "fallback";
-  payment_mode: "real" | "fake_local" | "bunq_fallback";
+  ai_mode: AiMode;
+  payment_mode: PaymentMode;
   fallback_mode: boolean;
 };
 

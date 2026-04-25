@@ -1,6 +1,6 @@
 # Technical Implementation Plan
 
-This plan defines how to start building bunq Bloom without overbuilding before the core loop works.
+This plan records the implementation shape for bunq Bloom and the constraints to preserve while hardening the codebase.
 
 ## Goal
 
@@ -51,18 +51,19 @@ Backend:
 
 Frontend:
 
-- Next.js 14.
-- React 18.
+- Next.js 16.
+- React 19.
 - TypeScript.
 - Tailwind CSS.
 - Lucide icons.
-- `npm` is acceptable unless the team chooses `pnpm` before scaffolding.
+- `npm` with a committed lockfile.
 
 Shared:
 
 - Add root `Makefile` only if it reduces repeated command friction.
 - Add `.env.example` files, never real `.env` files.
 - Use LM Studio for local AI by default and fake bunq locally so the app works without hosted AI or banking credentials.
+- Keep real bunq sandbox available through explicit local env and opt-in smoke tests.
 - Build the first vertical slice across backend and frontend instead of completing one side in isolation.
 - Use `docs/agents/orchestration.md` when splitting work across multiple coding agents.
 
@@ -81,6 +82,7 @@ ANTHROPIC_API_KEY=
 BUNQ_API_KEY=
 BUNQ_PARENT_ACCOUNT_ID=
 BUNQ_KID_ACCOUNT_ID=
+BUNQ_KID_ACCOUNT_IBAN=
 BLOOM_DEMO_ALLOW_AI_FALLBACK=false
 BLOOM_DEMO_ALLOW_BUNQ_FALLBACK=false
 ```
@@ -88,7 +90,8 @@ BLOOM_DEMO_ALLOW_BUNQ_FALLBACK=false
 Frontend `.env.example`:
 
 ```text
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+API_BASE_URL=http://127.0.0.1:8000
+NEXT_PUBLIC_API_BASE_URL=
 ```
 
 Rules:
@@ -111,10 +114,12 @@ apps/api/app/models/api.py
 apps/api/app/repositories/state_repository.py
 apps/api/app/repositories/photo_repository.py
 apps/api/app/services/gig_service.py
-apps/api/app/services/verification_service.py
 apps/api/app/services/payment_service.py
+apps/api/app/services/snap_and_learn_service.py
+apps/api/app/services/bloom_report_service.py
 apps/api/app/integrations/fake_verification_client.py
 apps/api/app/integrations/claude_client.py
+apps/api/app/integrations/lmstudio_client.py
 apps/api/app/integrations/fake_payment_client.py
 apps/api/app/integrations/bunq_payment_client.py
 apps/api/app/settings.py

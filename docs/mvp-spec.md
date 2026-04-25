@@ -303,9 +303,8 @@ Behavior:
 - Kid can claim it.
 - Kid can submit before and after photos.
 - Backend verifies with local LM Studio AI.
-- Backend pays with fake bunq.
-- Frontend shows paid result and updated fake balance.
-- Anthropic Claude and real bunq can later replace local/dev adapters without changing frontend API contracts.
+- Backend can pay with fake bunq locally or real bunq sandbox when configured.
+- Frontend shows paid result and updated balance.
+- LM Studio, Anthropic Claude, fake bunq, and real bunq can be swapped without changing frontend API contracts.
 - Duplicate completion attempts cannot create duplicate payments.
 - Uploaded photos are stored under ignored local storage, not committed.
-

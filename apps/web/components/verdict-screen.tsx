@@ -1,6 +1,37 @@
 import Link from "next/link";
-import { AlertCircle, AlertTriangle, CheckCircle2, Coins, RefreshCcw, ShieldCheck } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Coins,
+  RefreshCcw,
+  ShieldCheck
+} from "lucide-react";
 import type { CompleteGigResponse, Currency } from "@/lib/types";
+
+function formatMode(mode: string): string {
+  return mode.replaceAll("_", " ");
+}
+
+function integrationMessage(result: CompleteGigResponse): string | null {
+  if (result.fallback_mode) {
+    return `Demo fallback is active: ${formatMode(result.mode)}. Bloom is explicit when part of the flow runs without a live integration.`;
+  }
+
+  if (result.payment_mode === "fake_local") {
+    return `Demo payment mode: AI is ${formatMode(result.ai_mode)}, but payment and balance use local demo data.`;
+  }
+
+  if (result.ai_mode === "fake") {
+    return "Demo AI mode: payment uses the real bunq sandbox path, while verification uses deterministic local AI.";
+  }
+
+  if (result.payment_mode === "real" && result.ai_mode === "real") {
+    return "Live sandbox path: AI verification and bunq payment both used configured integrations.";
+  }
+
+  return null;
+}
 
 export function VerdictScreen({
   result,
@@ -24,6 +55,7 @@ export function VerdictScreen({
   const paymentFailed = result.payment?.status === "failed";
   const shownRewardAmount = result.payment?.amount ?? rewardAmount ?? "0.00";
   const shownCurrency = result.payment?.currency ?? currency;
+  const detailMessage = integrationMessage(result);
 
   return (
     <section className="space-y-4 rounded-3xl bg-card p-5 shadow-card">
@@ -39,10 +71,9 @@ export function VerdictScreen({
         <p className="text-sm leading-6">{result.verification.message_for_kid}</p>
       </div>
 
-      {result.fallback_mode ? (
+      {detailMessage ? (
         <div className="rounded-2xl bg-bloom-sky/10 p-4 text-sm leading-6 text-slate-700">
-          Demo fallback is active: <strong>{result.mode.replaceAll("_", " ")}</strong>. Bloom is
-          being explicit that part of the flow is running without a live integration.
+          {detailMessage}
         </div>
       ) : null}
 
@@ -77,6 +108,11 @@ export function VerdictScreen({
           <p className="text-lg font-black">
             {paymentSucceeded ? "Paid" : paymentFailed ? "Failed" : "Not paid"}
           </p>
+          {result.payment?.merchant_reference ? (
+            <p className="mt-1 truncate text-[10px] font-bold text-slate-500">
+              Ref: {result.payment.merchant_reference}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -89,6 +125,29 @@ export function VerdictScreen({
               The work was approved, but the transfer did not complete yet. You can retry payment
               without taking new photos.
             </p>
+            {result.payment?.error_code ? (
+              <p className="mt-1 text-xs font-bold text-bloom-coral">
+                Error code: {result.payment.error_code}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {result.balance_refresh_status === "failed" ? (
+        <div className="flex items-start gap-2 rounded-2xl border border-bloom-sun/40 bg-bloom-sun/20 p-4 text-sm leading-6 text-slate-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <div>
+            <p className="font-extrabold text-foreground">Payment succeeded, balance is catching up.</p>
+            <p>
+              Bloom will not retry the transfer automatically. Refresh the wallet later to avoid
+              duplicate payments.
+            </p>
+            {result.balance_refresh_error ? (
+              <p className="mt-1 text-xs font-bold text-amber-800">
+                Balance refresh error: {result.balance_refresh_error}
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}

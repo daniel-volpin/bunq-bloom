@@ -211,6 +211,8 @@ def test_complete_route_runs_fake_core_loop(tmp_path):
     assert body["verification"]["approved"] is True
     assert body["payment"]["status"] == "succeeded"
     assert body["kid_balance"]["amount"] == "27.50"
+    assert body["ai_mode"] == "fake"
+    assert body["payment_mode"] == "fake_local"
 
 
 def test_before_photo_route_rejects_unsupported_image_type(tmp_path):
@@ -314,6 +316,8 @@ def test_snap_and_learn_route_returns_analysis_shape(tmp_path):
     assert body["analysis"]["gigs_needed"] == 1
     assert body["kid_balance"]["amount"] == "22.50"
     assert body["mode"] == "fake_local"
+    assert body["ai_mode"] == "fake"
+    assert body["payment_mode"] == "fake_local"
     assert body["fallback_mode"] is False
 
 
@@ -331,4 +335,3 @@ def test_bloom_report_route_returns_weekly_report_shape(tmp_path):
     assert body["conversation_starter"] == "Which reward felt most worth the effort this week?"
     assert body["mode"] == "fake_local"
     assert body["fallback_mode"] is False
-

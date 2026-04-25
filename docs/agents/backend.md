@@ -27,11 +27,16 @@ Recommended modules:
 - `app/models/api.py`
 - `app/models/domain.py`
 - `app/services/gig_service.py`
-- `app/services/verification_service.py`
 - `app/services/payment_service.py`
+- `app/services/snap_and_learn_service.py`
+- `app/services/bloom_report_service.py`
 - `app/integrations/claude_client.py`
-- `app/integrations/bunq_client.py`
+- `app/integrations/lmstudio_client.py`
+- `app/integrations/bunq_payment_client.py`
+- `app/integrations/fake_payment_client.py`
+- `app/integrations/fake_verification_client.py`
 - `app/repositories/state_repository.py`
+- `app/repositories/photo_repository.py`
 
 ## Rules
 
@@ -54,7 +59,7 @@ mark verifying
 run verification
 if rejected: mark rejected and return verdict
 if approved: create bunq payment
-fetch kid balance
+use balance_after_mutation or fetch kid balance
 mark paid
 return verdict, payment, balance
 ```
@@ -75,14 +80,15 @@ Backend owns the contract for `POST /api/gigs/{gig_id}/complete`. Any change to 
 
 ## Testing Strategy
 
-Start with local AI and fake bunq:
+Start with deterministic local tests:
 
 - gig state transition tests
 - repository read/write tests
 - completion endpoint tests
 - duplicate completion/idempotency tests
+- bunq adapter unit tests with fake toolkit clients
 
-Real Claude and bunq tests should be opt-in smoke tests because they require credentials and network.
+Real LM Studio, Claude, and bunq tests should be opt-in smoke tests because they require local models, credentials, or network.
 
 ## Failure Handling
 

@@ -39,7 +39,7 @@ export default function GigSuggestPage() {
           Back to gigs
         </Link>
         <Link
-          href="/gigs/new"
+          href="/parent/gigs/new"
           className="tap-target flex items-center justify-center gap-2 rounded-full bg-bloom-green px-4 py-3 text-sm font-extrabold text-white shadow-card"
         >
           <Sparkles className="h-4 w-4" />

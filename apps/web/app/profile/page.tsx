@@ -107,16 +107,12 @@ export default function ProfilePage() {
   const { report, paidGigs, fallbackMode } = useBloomSummary();
   const { savedGoal, setSavedGoal } = useSavedGoal();
   const [goalOpen, setGoalOpen] = useState(false);
-  const [goalState, setGoalState] = useState({
-    label: savedGoal?.label ?? report?.highlights[0]?.title ?? "",
-    amount: savedGoal?.amount ?? "45.00"
-  });
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
 
   const streakDays = calculateStreakDays(paidGigs.map((gig) => gig.updated_at));
   const weeklyEarnings = report?.stats.money_earned.amount ?? "0.00";
-  const goalSummary = goalState.label || report?.highlights[0]?.title || "Not set";
+  const goalSummary = savedGoal?.label || report?.highlights[0]?.title || "Not set";
   const snapGoalLabel = searchParams.get("label")?.trim() ?? "";
   const snapGoalAmount = searchParams.get("amount")?.trim() ?? "";
   const hasSnapGoalPrefill =
@@ -124,8 +120,8 @@ export default function ProfilePage() {
   const dialogOpen = goalOpen || hasSnapGoalPrefill;
   const goalInitialLabel = hasSnapGoalPrefill
     ? snapGoalLabel
-    : goalState.label || report?.highlights[0]?.title || "";
-  const goalInitialAmount = hasSnapGoalPrefill ? snapGoalAmount : goalState.amount;
+    : savedGoal?.label || report?.highlights[0]?.title || "";
+  const goalInitialAmount = hasSnapGoalPrefill ? snapGoalAmount : savedGoal?.amount || "45.00";
 
   function handleGoalOpenChange(open: boolean) {
     setGoalOpen(open);
@@ -136,7 +132,6 @@ export default function ProfilePage() {
   }
 
   function handleGoalSave(goal: { label: string; amount: string }) {
-    setGoalState(goal);
     setSavedGoal(goal);
 
     if (hasSnapGoalPrefill) {
@@ -257,7 +252,7 @@ export default function ProfilePage() {
       </main>
 
       <SavingsGoalDialog
-        key={`${goalOpen}-${goalState.label || report?.highlights[0]?.title || ""}-${goalState.amount}`}
+        key={`${goalInitialLabel}:${goalInitialAmount}`}
         open={dialogOpen}
         onOpenChange={handleGoalOpenChange}
         initialLabel={goalInitialLabel}
@@ -267,4 +262,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

@@ -47,10 +47,10 @@ Keep integrations isolated so the app can be tested without external services.
 Recommended backend modules:
 
 - `services/gig_service.py`
-- `services/verification_service.py`
 - `services/payment_service.py`
 - `integrations/claude_client.py`
-- `integrations/bunq_client.py`
+- `integrations/lmstudio_client.py`
+- `integrations/bunq_payment_client.py`
 - `repositories/state_repository.py`
 
 Each adapter should have a simple interface and a fake implementation for local development.
@@ -79,13 +79,12 @@ Defer until the core loop works:
 
 ## First Implementation Milestone
 
-The first coding milestone should produce:
+The first coding milestone produced:
 
 - A Next.js app shell with parent and kid paths stubbed.
 - A FastAPI app with the documented endpoints.
 - Local JSON state.
-- LM Studio verification and fake bunq adapters.
-- One end-to-end flow using local AI and fake bunq.
+- LM Studio verification, Anthropic, fake bunq, and real bunq sandbox adapters.
+- One end-to-end flow using local adapters, with real bunq sandbox smoke tests available.
 
-After that, switch to hosted Claude and real bunq sandbox clients behind the same interfaces.
-
+Current cleanup priority is preserving this architecture while making the codebase easy to evaluate: accurate docs, clear module boundaries, deterministic tests, and honest fallback/error states.

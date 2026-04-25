@@ -111,7 +111,7 @@ export default function HomePage() {
               Post a new gig and Bloom will turn it into the next earning moment.
             </p>
             <Link
-              href="/gigs/new"
+              href="/parent/gigs/new"
               className="tap-target mt-4 inline-flex items-center gap-2 rounded-full bg-bloom-green px-5 py-3 font-extrabold text-white"
             >
               Create a gig

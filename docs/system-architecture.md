@@ -8,7 +8,7 @@ bunq Bloom uses a Next.js mobile-first frontend and a FastAPI backend. The backe
 Next.js app
   -> /api proxy
   -> FastAPI backend
-    -> Claude Vision
+    -> LM Studio or Claude Vision
     -> bunq sandbox API
     -> local JSON state
 ```
@@ -17,8 +17,8 @@ Next.js app
 
 Technology:
 
-- Next.js 14
-- React 18
+- Next.js 16
+- React 19
 - TypeScript
 - Tailwind CSS
 - Lucide icons
@@ -45,7 +45,7 @@ Technology:
 - Python
 - FastAPI
 - bunq official hackathon toolkit
-- Anthropic Claude API
+- LM Studio and Anthropic Claude API adapters
 - Local JSON state for MVP persistence
 
 Responsibilities:
@@ -61,7 +61,7 @@ Backend should expose JSON APIs only. Binary image upload can start as base64 fo
 
 ## Integration Boundaries
 
-### Claude Vision
+### AI Vision
 
 Used for before/after gig verification.
 
@@ -83,7 +83,7 @@ Output:
 
 Fallback:
 
-- If Claude is unavailable during a demo, backend may approve with `fallback_mode: true`.
+- If the configured AI provider is unavailable during a demo, backend may approve with `fallback_mode: true`.
 - The response must make fallback mode explicit so the UI can avoid pretending AI succeeded.
 
 ### bunq Sandbox
@@ -92,10 +92,11 @@ Used for real sandbox money movement and balance retrieval.
 
 Operations:
 
-- Get parent monetary account.
-- Get kid monetary account.
+- Resolve configured parent and kid monetary accounts.
+- Cache kid account IBAN to reduce bunq GET pressure.
 - Create payment from parent to kid after approved gig.
-- Fetch kid balance after payment.
+- Use `balance_after_mutation` when bunq returns it; otherwise fetch kid balance after payment.
+- Store bunq payment id and merchant reference for reconciliation.
 
 Fallback:
 
@@ -127,8 +128,8 @@ Do not store secrets in committed files.
 5. Backend marks gig verifying.
 6. Backend sends before and after images to Claude Vision.
 7. Backend stores verification result.
-8. If approved, backend creates bunq payment.
-9. Backend fetches updated kid balance.
+8. If approved, backend creates bunq payment with a merchant reference.
+9. Backend uses `balance_after_mutation` or fetches updated kid balance.
 10. Backend marks gig paid.
 11. Frontend renders verdict, payment status, and updated balance.
 ```
