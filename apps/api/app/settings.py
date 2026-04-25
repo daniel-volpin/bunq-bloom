@@ -58,15 +58,24 @@ class Settings(BaseSettings):
             missing.append("bunq_parent_account_id_missing")
         if not self.bunq_kid_account_id:
             missing.append("bunq_kid_account_id_missing")
-        if not self.resolved_bunq_toolkit_client_path().exists():
+        if not (self.resolved_bunq_toolkit_path() / "bunq_client.py").exists():
             missing.append("bunq_toolkit_client_missing")
         return missing
 
-    def resolved_bunq_toolkit_client_path(self) -> Path:
+    def resolved_bunq_toolkit_path(self) -> Path:
         path = self.bunq_toolkit_path
-        if not path.is_absolute():
-            path = Path.cwd() / path
-        return path.resolve() / "bunq_client.py"
+        if path.is_absolute():
+            return path.resolve()
+
+        cwd_candidate = (Path.cwd() / path).resolve()
+        if (cwd_candidate / "bunq_client.py").exists():
+            return cwd_candidate
+
+        api_root_candidate = (Path(__file__).resolve().parents[1] / path).resolve()
+        return api_root_candidate
+
+    def resolved_bunq_toolkit_client_path(self) -> Path:
+        return self.resolved_bunq_toolkit_path() / "bunq_client.py"
 
 
 @lru_cache

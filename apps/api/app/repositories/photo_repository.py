@@ -6,6 +6,7 @@ from app.models.domain import new_id
 
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
+MAX_BASE64_CHARS = ((MAX_IMAGE_BYTES + 2) // 3) * 4
 SUPPORTED_TYPES = {
     "image/jpeg": "jpg",
     "image/png": "png",
@@ -35,6 +36,8 @@ class PhotoRepository:
 
     def validate_data_url(self, image_base64: str) -> tuple[str, bytes]:
         content_type, payload = self._parse_data_url(image_base64)
+        if len(payload) > MAX_BASE64_CHARS:
+            raise AppError("image_too_large", "Image must be 8 MB or smaller.", status_code=413)
         raw = self._decode(payload)
         if len(raw) > MAX_IMAGE_BYTES:
             raise AppError("image_too_large", "Image must be 8 MB or smaller.", status_code=413)
@@ -54,4 +57,3 @@ class PhotoRepository:
             return base64.b64decode(payload, validate=True)
         except ValueError as exc:
             raise AppError("invalid_image_type", "Image payload is not valid base64.") from exc
-

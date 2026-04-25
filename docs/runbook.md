@@ -58,6 +58,7 @@ after photo accepted
 LM Studio verification returns a structured result
 fake payment succeeds
 verdict screen shows updated fake balance
+response shows `mode=fake_local`, `ai_mode=real`, and `payment_mode=fake_local`
 ```
 
 Health expectations in this mode:
@@ -103,6 +104,16 @@ backend creates tiny sandbox payment
 backend fetches updated kid balance
 ```
 
+The tiny payment smoke is intentionally behind a second flag because it creates a real sandbox transfer:
+
+```bash
+cd apps/api
+export BLOOM_RUN_SMOKE_TESTS=true
+export BLOOM_RUN_BUNQ_PAYMENT_SMOKE=true
+export BLOOM_BUNQ_SMOKE_PAYMENT_AMOUNT=0.01
+pytest tests/test_integration_smoke.py::test_bunq_tiny_payment_smoke -q
+```
+
 ## Opt-In Real Provider Smoke Tests
 
 These smoke checks are excluded from default test runs.
@@ -137,10 +148,16 @@ BUNQ_KID_ACCOUNT_ID
 BLOOM_BUNQ_TOOLKIT_PATH
 ```
 
+Tiny bunq payment smoke test additionally requires:
+
+```text
+BLOOM_RUN_BUNQ_PAYMENT_SMOKE=true
+```
+
 Expected default result without configuration:
 
 ```text
-2 skipped
+3 skipped
 ```
 
 ## Reset Local State
@@ -167,6 +184,8 @@ Known categories to document during implementation:
 - AI unavailable
 - bunq 401/403/429/400
 - duplicate completion attempt
+- payment succeeded but balance refresh failed
+- payment response shape unknown
 
 ## Current Environment Note
 

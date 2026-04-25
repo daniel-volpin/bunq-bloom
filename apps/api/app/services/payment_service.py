@@ -5,7 +5,7 @@ class PaymentService:
     def __init__(self, payment_client):
         self.payment_client = payment_client
 
-    def pay_for_gig(self, *, state: dict, gig: dict, idempotency_key: str) -> tuple[dict, dict]:
+    def pay_for_gig(self, *, state: dict, gig: dict, idempotency_key: str) -> tuple[dict, dict | None]:
         payment_result = self.payment_client.create_parent_to_kid_payment(
             amount=gig["reward_amount"],
             currency=gig["currency"],
@@ -33,11 +33,10 @@ class PaymentService:
             kid_balance["amount"] = money_add(kid_balance["amount"], gig["reward_amount"])
             kid_balance["source"] = "fake"
         else:
-            kid_balance = self.payment_client.get_kid_balance(state)
-            state["balances"]["kid_001"] = kid_balance
+            kid_balance = None
         return payment, kid_balance
 
-    def record_failed_payment(self, *, state: dict, gig: dict, error_code: str) -> dict:
+    def record_failed_payment(self, *, state: dict, gig: dict, error_code: str, retryable: bool = True) -> dict:
         payment_id = new_id("payment")
         now = now_iso()
         payment = {
@@ -50,6 +49,7 @@ class PaymentService:
             "bunq_payment_id": None,
             "status": "failed",
             "error_code": error_code,
+            "retryable": retryable,
             "created_at": now,
             "updated_at": now,
         }

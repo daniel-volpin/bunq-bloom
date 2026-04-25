@@ -54,139 +54,142 @@ class GigService:
             "created_at": now,
             "updated_at": now,
         }
-        state = self.state_repository.load()
-        state["gigs"][gig_id] = gig
-        self.state_repository.save(state)
-        return {"gig": gig}
+        with self.state_repository.transaction() as state:
+            state["gigs"][gig_id] = gig
+            return {"gig": gig}
 
     def claim_gig(self, gig_id: str) -> dict:
-        state = self.state_repository.load()
-        gig = self._get_gig(state, gig_id)
-        if gig["status"] != "open":
-            raise AppError("invalid_gig_state", "Only open gigs can be claimed.")
-        gig["status"] = "claimed"
-        gig["claimed_by_user_id"] = "kid_001"
-        gig["updated_at"] = now_iso()
-        self.state_repository.save(state)
-        return {"gig": gig}
+        with self.state_repository.transaction() as state:
+            gig = self._get_gig(state, gig_id)
+            if gig["status"] != "open":
+                raise AppError("invalid_gig_state", "Only open gigs can be claimed.")
+            gig["status"] = "claimed"
+            gig["claimed_by_user_id"] = "kid_001"
+            gig["updated_at"] = now_iso()
+            return {"gig": gig}
 
     def add_before_photo(self, gig_id: str, image_base64: str) -> dict:
-        state = self.state_repository.load()
-        gig = self._get_gig(state, gig_id)
-        if gig["status"] not in {"claimed", "rejected"}:
-            raise AppError("invalid_gig_state", "Before photo can only be added after claiming.")
+        with self.state_repository.transaction() as state:
+            gig = self._get_gig(state, gig_id)
+            if gig["status"] not in {"claimed", "rejected"}:
+                raise AppError("invalid_gig_state", "Before photo can only be added after claiming.")
 
-        photo = self.photo_repository.save_data_url(image_base64, gig_id=gig_id, kind="before")
-        photo["created_at"] = now_iso()
-        state["photos"][photo["id"]] = photo
-        gig["before_photo_id"] = photo["id"]
-        gig["status"] = "awaiting_after_photo"
-        gig["updated_at"] = now_iso()
-        self.state_repository.save(state)
-        return {"gig": gig}
+            photo = self.photo_repository.save_data_url(image_base64, gig_id=gig_id, kind="before")
+            photo["created_at"] = now_iso()
+            state["photos"][photo["id"]] = photo
+            gig["before_photo_id"] = photo["id"]
+            gig["status"] = "awaiting_after_photo"
+            gig["updated_at"] = now_iso()
+            return {"gig": gig}
 
     def complete_gig(self, gig_id: str, *, after_image_base64: str, idempotency_key: str) -> dict:
         attempt_id = f"{gig_id}:{idempotency_key}"
-        state = self.state_repository.load()
-        if attempt_id in state["completion_attempts"]:
-            return state["completion_attempts"][attempt_id]["response"]
+        with self.state_repository.transaction() as state:
+            if attempt_id in state["completion_attempts"]:
+                return state["completion_attempts"][attempt_id]["response"]
 
-        gig = self._get_gig(state, gig_id)
-        if gig["status"] == "paid":
-            return self._paid_response(state, gig)
-        if gig["status"] not in {"awaiting_after_photo", "payment_failed"}:
-            raise AppError("invalid_gig_state", "Gig is not ready for completion.")
-        if not gig.get("before_photo_id"):
-            raise AppError("missing_before_photo", "Add a before photo before completing the gig.")
+            gig = self._get_gig(state, gig_id)
+            if gig["status"] == "paid":
+                return self._paid_response(state, gig)
+            if gig["status"] not in {"awaiting_after_photo", "payment_failed"}:
+                raise AppError("invalid_gig_state", "Gig is not ready for completion.")
+            if not gig.get("before_photo_id"):
+                raise AppError("missing_before_photo", "Add a before photo before completing the gig.")
+            if gig["status"] == "payment_failed":
+                self._ensure_payment_retryable(state, gig)
 
-        after_photo_id = None
-        if gig["status"] == "payment_failed" and gig.get("verification_result_id"):
-            verification = state["verification_results"][gig["verification_result_id"]]
-            if not verification.get("approved"):
-                raise AppError("invalid_gig_state", "Rejected gigs need a new after photo before retry.")
-        else:
-            before_photo = state["photos"][gig["before_photo_id"]]
-            after_photo = self.photo_repository.save_data_url(after_image_base64, gig_id=gig_id, kind="after")
-            after_photo["created_at"] = now_iso()
-            state["photos"][after_photo["id"]] = after_photo
-            after_photo_id = after_photo["id"]
-            gig["after_photo_id"] = after_photo["id"]
-            gig["status"] = "verifying"
-            gig["updated_at"] = now_iso()
+            after_photo_id = None
+            if gig["status"] == "payment_failed" and gig.get("verification_result_id"):
+                verification = state["verification_results"][gig["verification_result_id"]]
+                if not verification.get("approved"):
+                    raise AppError("invalid_gig_state", "Rejected gigs need a new after photo before retry.")
+            else:
+                before_photo = state["photos"][gig["before_photo_id"]]
+                after_photo = self.photo_repository.save_data_url(after_image_base64, gig_id=gig_id, kind="after")
+                after_photo["created_at"] = now_iso()
+                state["photos"][after_photo["id"]] = after_photo
+                after_photo_id = after_photo["id"]
+                gig["after_photo_id"] = after_photo["id"]
+                gig["status"] = "verifying"
+                gig["updated_at"] = now_iso()
 
-            verification = self._verify_or_fallback(
+                verification = self._verify_or_fallback(
+                    gig=gig,
+                    before_photo=before_photo,
+                    after_photo=after_photo,
+                )
+                verification["created_at"] = now_iso()
+                state["verification_results"][verification["id"]] = verification
+                gig["verification_result_id"] = verification["id"]
+
+            if not verification["approved"]:
+                gig["status"] = "rejected"
+                gig["updated_at"] = now_iso()
+                response = self._completion_response(gig, verification, None, None)
+                self._store_attempt(state, attempt_id, response, verification["id"], None, after_photo_id)
+                return response
+
+            return self._complete_approved_gig_payment(
+                state=state,
                 gig=gig,
-                before_photo=before_photo,
-                after_photo=after_photo,
+                verification=verification,
+                attempt_id=attempt_id,
+                after_photo_id=after_photo_id,
             )
-            verification["created_at"] = now_iso()
-            state["verification_results"][verification["id"]] = verification
-            gig["verification_result_id"] = verification["id"]
-
-        if not verification["approved"]:
-            gig["status"] = "rejected"
-            gig["updated_at"] = now_iso()
-            response = self._completion_response(gig, verification, None, None)
-            self._store_attempt(state, attempt_id, response, verification["id"], None, after_photo_id)
-            self.state_repository.save(state)
-            return response
-
-        response = self._complete_approved_gig_payment(
-            state=state,
-            gig=gig,
-            verification=verification,
-            attempt_id=attempt_id,
-            after_photo_id=after_photo_id,
-        )
-        self.state_repository.save(state)
-        return response
 
     def retry_payment(self, gig_id: str, *, idempotency_key: str) -> dict:
         attempt_id = f"{gig_id}:retry-payment:{idempotency_key}"
-        state = self.state_repository.load()
-        if attempt_id in state["completion_attempts"]:
-            return state["completion_attempts"][attempt_id]["response"]
+        with self.state_repository.transaction() as state:
+            if attempt_id in state["completion_attempts"]:
+                return state["completion_attempts"][attempt_id]["response"]
 
-        gig = self._get_gig(state, gig_id)
-        if gig["status"] == "paid":
-            return self._paid_response(state, gig)
-        if gig["status"] != "payment_failed":
-            raise AppError("invalid_gig_state", "Only payment_failed gigs can retry payment.")
+            gig = self._get_gig(state, gig_id)
+            if gig["status"] == "paid":
+                return self._paid_response(state, gig)
+            if gig["status"] != "payment_failed":
+                raise AppError("invalid_gig_state", "Only payment_failed gigs can retry payment.")
+            self._ensure_payment_retryable(state, gig)
 
-        verification_id = gig.get("verification_result_id")
-        if not verification_id:
-            raise AppError("invalid_gig_state", "Payment retry requires an approved verification result.")
+            verification_id = gig.get("verification_result_id")
+            if not verification_id:
+                raise AppError("invalid_gig_state", "Payment retry requires an approved verification result.")
 
-        verification = state["verification_results"][verification_id]
-        if not verification.get("approved"):
-            raise AppError("invalid_gig_state", "Payment retry requires an approved verification result.")
+            verification = state["verification_results"][verification_id]
+            if not verification.get("approved"):
+                raise AppError("invalid_gig_state", "Payment retry requires an approved verification result.")
 
-        response = self._complete_approved_gig_payment(
-            state=state,
-            gig=gig,
-            verification=verification,
-            attempt_id=attempt_id,
-            after_photo_id=None,
-        )
-        self.state_repository.save(state)
-        return response
+            return self._complete_approved_gig_payment(
+                state=state,
+                gig=gig,
+                verification=verification,
+                attempt_id=attempt_id,
+                after_photo_id=None,
+            )
 
     def get_kid_balance(self) -> dict:
-        state = self.state_repository.load()
-        balance = self.payment_service.get_kid_balance(state)
-        self.state_repository.save(state)
-        mode = getattr(self.payment_service.payment_client, "mode", "fake_local")
-        return {
-            "balance": balance,
-            "mode": mode,
-            "fallback_mode": mode in ("bunq_fallback",),
-        }
+        with self.state_repository.transaction() as state:
+            balance = self.payment_service.get_kid_balance(state)
+            mode = getattr(self.payment_service.payment_client, "mode", "fake_local")
+            return {
+                "balance": balance,
+                "mode": mode,
+                "fallback_mode": mode in ("bunq_fallback",),
+            }
 
     def _get_gig(self, state: dict, gig_id: str) -> dict:
         try:
             return state["gigs"][gig_id]
         except KeyError as exc:
             raise AppError("gig_not_found", "Gig was not found.", status_code=404) from exc
+
+    def _ensure_payment_retryable(self, state: dict, gig: dict) -> None:
+        payment = state["payments"].get(gig.get("payment_id"))
+        if payment and payment.get("status") == "failed" and not payment.get("retryable", True):
+            raise AppError(
+                "payment_not_retryable",
+                "Payment state is unknown. Check bunq before retrying to avoid a duplicate payment.",
+                status_code=409,
+            )
 
     def _store_attempt(
         self,
@@ -227,6 +230,7 @@ class GigService:
                 state=state,
                 gig=gig,
                 error_code=exc.code,
+                retryable=exc.retryable,
             )
             gig["payment_id"] = payment["id"]
             gig["status"] = "payment_failed"
@@ -238,6 +242,28 @@ class GigService:
         gig["payment_id"] = payment["id"]
         gig["status"] = "paid"
         gig["updated_at"] = now_iso()
+        if kid_balance is None:
+            kid_balance = state["balances"]["kid_001"]
+            response = self._completion_response(gig, verification, payment, kid_balance)
+            response["balance_refresh_status"] = "pending"
+            self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
+            self.state_repository.save(state)
+
+            try:
+                kid_balance = self.payment_service.get_kid_balance(state)
+                response = self._completion_response(gig, verification, payment, kid_balance)
+                response["balance_refresh_status"] = "ok"
+            except AppError as exc:
+                response = self._completion_response(gig, verification, payment, kid_balance)
+                response["balance_refresh_status"] = "failed"
+                response["balance_refresh_error"] = exc.code
+            except Exception:
+                response = self._completion_response(gig, verification, payment, kid_balance)
+                response["balance_refresh_status"] = "failed"
+                response["balance_refresh_error"] = "balance_refresh_failed"
+            self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
+            return response
+
         response = self._completion_response(gig, verification, payment, kid_balance)
         self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
         return response
@@ -292,25 +318,34 @@ class GigService:
         payment: dict | None,
         kid_balance: dict | None,
     ) -> dict:
-        mode = self._response_mode(verification)
+        ai_mode = self._ai_response_mode(verification)
+        payment_mode = getattr(self.payment_service.payment_client, "mode", "fake_local")
+        mode = self._response_mode(ai_mode, payment_mode)
         return {
             "gig": gig,
             "verification": self._public_verification(verification) if verification else None,
             "payment": self._public_payment(payment) if payment else None,
             "kid_balance": kid_balance,
             "mode": mode,
+            "ai_mode": ai_mode,
+            "payment_mode": payment_mode,
             "fallback_mode": mode in ("ai_fallback", "bunq_fallback"),
         }
 
-    def _response_mode(self, verification: dict | None) -> str:
+    def _ai_response_mode(self, verification: dict | None) -> str:
         verification_provider = (verification or {}).get("raw_provider")
-        payment_mode = getattr(self.payment_service.payment_client, "mode", "fake_local")
-
         if verification_provider == "fallback":
+            return "fallback"
+        if verification_provider == "fake":
+            return "fake"
+        return "real"
+
+    def _response_mode(self, ai_mode: str, payment_mode: str) -> str:
+        if ai_mode == "fallback":
             return "ai_fallback"
         if payment_mode == "bunq_fallback":
             return "bunq_fallback"
-        if verification_provider == "fake" and payment_mode == "fake_local":
+        if payment_mode == "fake_local":
             return "fake_local"
         return "real"
 
@@ -338,5 +373,5 @@ class GigService:
             "amount": payment["amount"],
             "currency": payment["currency"],
             "bunq_payment_id": payment.get("bunq_payment_id"),
-            "retryable": payment["status"] == "failed",
+            "retryable": payment.get("retryable", payment["status"] == "failed"),
         }

@@ -101,11 +101,13 @@ Fallback:
 
 - If bunq payment fails, do not mark the gig as paid.
 - Return `payment_failed` with a retry-safe identifier.
+- If payment creation succeeds but balance refresh fails, keep the gig `paid` and surface `balance_refresh_status: failed`; retrying must not create another payment.
 - For demo-only mode, backend may return a simulated balance with `fallback_mode: true`.
 
 ## Local State
 
 For the MVP, local JSON state is acceptable because it is inspectable and fast to iterate on.
+State mutations that can trigger payment must run under the repository transaction lock. This protects the demo backend from duplicate local writes and duplicate bunq payments in a single deployment process.
 
 Recommended files:
 
@@ -138,4 +140,3 @@ Do not store secrets in committed files.
 - Treat local JSON as development state only.
 - Validate image size and content type before sending to Claude.
 - Add idempotency around payment creation before public demos.
-

@@ -22,6 +22,8 @@ Common error codes:
 - `invalid_image_type`
 - `verification_failed`
 - `payment_failed`
+- `payment_state_unknown`
+- `payment_not_retryable`
 - `duplicate_completion`
 
 Image upload constraints:
@@ -160,6 +162,8 @@ Response on approval and payment success:
     "source": "bunq"
   },
   "mode": "real",
+  "ai_mode": "real",
+  "payment_mode": "real",
   "fallback_mode": false
 }
 ```
@@ -181,6 +185,8 @@ Response on AI rejection:
   "payment": null,
   "kid_balance": null,
   "mode": "real",
+  "ai_mode": "real",
+  "payment_mode": "real",
   "fallback_mode": false
 }
 ```
@@ -207,16 +213,22 @@ Response on payment failure after approval:
   },
   "kid_balance": null,
   "mode": "real",
+  "ai_mode": "real",
+  "payment_mode": "real",
   "fallback_mode": false
 }
 ```
 
 Mode values:
 
-- `fake_local`: local fake payment mode was used while AI stayed real or test-only fixtures were used
-- `real`: real AI verification succeeded; bunq may be real or fake depending on environment
+- `fake_local`: local fake payment mode was used, even if AI was real
+- `real`: both AI and payment path used real configured providers
 - `ai_fallback`: Claude failed and explicit demo fallback was used
 - `bunq_fallback`: bunq failed and explicit demo fallback was used
+
+`ai_mode` and `payment_mode` expose the two integration paths separately. Frontend copy should not claim real money moved unless `payment_mode` is `real`.
+
+If the bunq payment succeeds but the follow-up balance refresh fails, the gig still returns `status: paid` with the successful payment and adds `balance_refresh_status: failed`. Retrying must not create a second payment.
 
 ### `POST /api/gigs/{gig_id}/retry-payment`
 
@@ -256,6 +268,8 @@ Response on payment retry success:
     "source": "bunq"
   },
   "mode": "real",
+  "ai_mode": "real",
+  "payment_mode": "real",
   "fallback_mode": false
 }
 ```
@@ -264,6 +278,7 @@ Error cases:
 
 - `invalid_gig_state` when the gig is not currently `payment_failed`
 - `payment_failed` when the retry attempt also fails
+- `payment_not_retryable` when bunq may have created a payment but returned an unparseable response
 
 ## Money APIs
 
@@ -282,6 +297,7 @@ Response:
   },
   "fallback_mode": false
 }
+```
 
 ## Snap & Learn APIs
 
@@ -317,6 +333,8 @@ Response:
     "source": "fake"
   },
   "mode": "fake_local",
+  "ai_mode": "real",
+  "payment_mode": "fake_local",
   "fallback_mode": false
 }
 ```
@@ -362,7 +380,6 @@ Response:
   "mode": "fake_local",
   "fallback_mode": false
 }
-```
 ```
 
 ## Health APIs

@@ -61,7 +61,16 @@ class BunqPaymentClient:
                 retryable=True,
             ) from exc
 
-        bunq_payment_id = str(response[0]["Id"]["id"])
+        try:
+            bunq_payment_id = str(response[0]["Id"]["id"])
+        except (IndexError, KeyError, TypeError) as exc:
+            raise AppError(
+                "payment_state_unknown",
+                "bunq sandbox payment response could not be parsed.",
+                status_code=502,
+                retryable=False,
+            ) from exc
+
         return {
             "status": "succeeded",
             "amount": amount,
@@ -104,10 +113,7 @@ class BunqPaymentClient:
         return client
 
     def _resolve_toolkit_path(self) -> Path:
-        path = self.settings.bunq_toolkit_path
-        if not path.is_absolute():
-            path = Path.cwd() / path
-        path = path.resolve()
+        path = self.settings.resolved_bunq_toolkit_path()
         if not (path / "bunq_client.py").exists():
             raise AppError(
                 "payment_failed",

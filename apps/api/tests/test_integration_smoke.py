@@ -10,6 +10,7 @@ from app.integrations.lmstudio_client import LMStudioVisionClient
 
 
 _SMOKE_FLAG = "BLOOM_RUN_SMOKE_TESTS"
+_PAYMENT_SMOKE_FLAG = "BLOOM_RUN_BUNQ_PAYMENT_SMOKE"
 
 
 def _require_enabled() -> None:
@@ -66,6 +67,7 @@ def test_bunq_balance_smoke() -> None:
         bunq_parent_account_id=parent_account_id,
         bunq_kid_account_id=kid_account_id,
         bunq_toolkit_path=Path(toolkit_path),
+        resolved_bunq_toolkit_path=lambda: Path(toolkit_path).resolve(),
     )
     client = BunqPaymentClient(settings)
 
@@ -74,3 +76,37 @@ def test_bunq_balance_smoke() -> None:
     assert balance["currency"] == "EUR"
     assert balance["source"] == "bunq"
     assert balance["amount"]
+
+
+def test_bunq_tiny_payment_smoke() -> None:
+    _require_enabled()
+    if os.getenv(_PAYMENT_SMOKE_FLAG, "").lower() not in {"1", "true", "yes"}:
+        pytest.skip(f"Set {_PAYMENT_SMOKE_FLAG}=true to create a real sandbox payment.")
+
+    api_key = _require_env("BUNQ_API_KEY")
+    parent_account_id = _require_env("BUNQ_PARENT_ACCOUNT_ID")
+    kid_account_id = _require_env("BUNQ_KID_ACCOUNT_ID")
+    toolkit_path = _require_env("BLOOM_BUNQ_TOOLKIT_PATH")
+    amount = os.getenv("BLOOM_BUNQ_SMOKE_PAYMENT_AMOUNT", "0.01")
+
+    settings = SimpleNamespace(
+        bunq_api_key=api_key,
+        bunq_parent_account_id=parent_account_id,
+        bunq_kid_account_id=kid_account_id,
+        bunq_toolkit_path=Path(toolkit_path),
+        resolved_bunq_toolkit_path=lambda: Path(toolkit_path).resolve(),
+    )
+    client = BunqPaymentClient(settings)
+
+    result = client.create_parent_to_kid_payment(
+        amount=amount,
+        currency="EUR",
+        description="bunq Bloom smoke payment",
+        idempotency_key="smoke-test-manual",
+    )
+    balance = client.get_kid_balance()
+
+    assert result["status"] == "succeeded"
+    assert result["bunq_payment_id"]
+    assert balance["currency"] == "EUR"
+    assert balance["source"] == "bunq"

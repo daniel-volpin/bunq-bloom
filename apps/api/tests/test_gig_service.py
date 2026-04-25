@@ -1,4 +1,7 @@
 import base64
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier, Lock
+from time import sleep
 
 import pytest
 
@@ -57,6 +60,42 @@ class FailThenSucceedPaymentClient(FakePaymentClient):
         if self.calls == 1:
             raise AppError("payment_failed", "Simulated payment failure.", retryable=True)
         return super().create_parent_to_kid_payment(**kwargs)
+
+
+class SlowRealPaymentClient:
+    mode = "real"
+    parent_account_id = "parent_001"
+    kid_account_id = "kid_001"
+
+    def __init__(self):
+        self.calls = 0
+        self._lock = Lock()
+
+    def create_parent_to_kid_payment(self, **kwargs):
+        with self._lock:
+            self.calls += 1
+        sleep(0.05)
+        return {
+            "status": "succeeded",
+            "amount": kwargs["amount"],
+            "currency": kwargs["currency"],
+            "bunq_payment_id": f"bunq_payment_{self.calls}",
+        }
+
+    def get_kid_balance(self, state=None):
+        return {"amount": "27.50", "currency": "EUR", "source": "bunq"}
+
+
+class RealPaymentBalanceFailureClient(SlowRealPaymentClient):
+    def get_kid_balance(self, state=None):
+        raise AppError("balance_refresh_failed", "Balance refresh failed.", status_code=502, retryable=True)
+
+
+class UnknownStatePaymentClient(SlowRealPaymentClient):
+    def create_parent_to_kid_payment(self, **kwargs):
+        with self._lock:
+            self.calls += 1
+        raise AppError("payment_state_unknown", "Payment state is unknown.", status_code=502, retryable=False)
 
 
 class BrokenVerificationClient:
@@ -179,7 +218,7 @@ def test_ai_fallback_can_approve_when_explicitly_enabled(tmp_path):
     assert result["fallback_mode"] is True
 
 
-def test_real_ai_with_fake_payment_reports_real_mode(tmp_path):
+def test_real_ai_with_fake_payment_reports_fake_payment_mode(tmp_path):
     service = make_service_with_clients(tmp_path, RealVerificationClient(), FakePaymentClient())
 
     service.claim_gig("gig_001")
@@ -192,8 +231,80 @@ def test_real_ai_with_fake_payment_reports_real_mode(tmp_path):
 
     assert result["gig"]["status"] == "paid"
     assert result["payment"]["status"] == "succeeded"
-    assert result["mode"] == "real"
+    assert result["mode"] == "fake_local"
+    assert result["ai_mode"] == "real"
+    assert result["payment_mode"] == "fake_local"
     assert result["fallback_mode"] is False
+
+
+def test_concurrent_completion_only_creates_one_real_payment(tmp_path):
+    payment_client = SlowRealPaymentClient()
+    service = make_service_with_clients(tmp_path, RealVerificationClient(), payment_client)
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+    barrier = Barrier(2)
+
+    def complete(idempotency_key: str) -> dict:
+        barrier.wait(timeout=2)
+        return service.complete_gig(
+            "gig_001",
+            after_image_base64=image_data_url(idempotency_key.encode()),
+            idempotency_key=idempotency_key,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(complete, ["attempt-001", "attempt-002"]))
+
+    assert payment_client.calls == 1
+    assert {result["gig"]["status"] for result in results} == {"paid"}
+    assert {result["payment"]["bunq_payment_id"] for result in results} == {"bunq_payment_1"}
+
+
+def test_successful_payment_is_not_marked_failed_when_balance_refresh_fails(tmp_path):
+    payment_client = RealPaymentBalanceFailureClient()
+    service = make_service_with_clients(tmp_path, RealVerificationClient(), payment_client)
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+    result = service.complete_gig(
+        "gig_001",
+        after_image_base64=image_data_url(b"after"),
+        idempotency_key="attempt-001",
+    )
+    retried = service.complete_gig(
+        "gig_001",
+        after_image_base64=image_data_url(b"after-again"),
+        idempotency_key="attempt-002",
+    )
+
+    assert result["gig"]["status"] == "paid"
+    assert result["payment"]["status"] == "succeeded"
+    assert result["balance_refresh_status"] == "failed"
+    assert result["balance_refresh_error"] == "balance_refresh_failed"
+    assert retried["payment"]["bunq_payment_id"] == result["payment"]["bunq_payment_id"]
+    assert payment_client.calls == 1
+
+
+def test_unknown_payment_state_blocks_retry_to_avoid_duplicate_payment(tmp_path):
+    payment_client = UnknownStatePaymentClient()
+    service = make_service_with_clients(tmp_path, RealVerificationClient(), payment_client)
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+    result = service.complete_gig(
+        "gig_001",
+        after_image_base64=image_data_url(b"after"),
+        idempotency_key="attempt-001",
+    )
+
+    assert result["gig"]["status"] == "payment_failed"
+    assert result["payment"]["retryable"] is False
+    with pytest.raises(AppError) as exc_info:
+        service.retry_payment("gig_001", idempotency_key="retry-001")
+
+    assert exc_info.value.code == "payment_not_retryable"
+    assert payment_client.calls == 1
 
 
 def test_ai_failure_without_fallback_is_retryable_error(tmp_path):

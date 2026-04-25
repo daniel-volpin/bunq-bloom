@@ -115,14 +115,16 @@ def test_snap_and_learn_raises_retryable_error_without_fallback(tmp_path):
         raise AssertionError("Expected AppError for failed analysis without fallback")
 
 
-def test_snap_and_learn_reports_real_mode_for_provider_backed_analysis(tmp_path):
+def test_snap_and_learn_reports_fake_payment_mode_for_provider_backed_analysis(tmp_path):
     service = make_service(tmp_path, RealSnapAndLearnClient(), allow_fallback=False)
 
     result = service.analyze(image_data_url(b"item-photo"))
 
     assert result["analysis"]["item_name"] == "Blue Bicycle Helmet"
     assert result["analysis"]["estimated_price"] == {"amount": "29.95", "currency": "EUR"}
-    assert result["mode"] == "real"
+    assert result["mode"] == "fake_local"
+    assert result["ai_mode"] == "real"
+    assert result["payment_mode"] == "fake_local"
     assert result["fallback_mode"] is False
 
 

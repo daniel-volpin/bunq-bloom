@@ -25,9 +25,8 @@ class SnapAndLearnService:
 
     def analyze(self, image_base64: str) -> dict:
         self.photo_repository.validate_data_url(image_base64)
-        state = self.state_repository.load()
-        kid_balance = self.payment_service.get_kid_balance(state)
-        self.state_repository.save(state)
+        with self.state_repository.transaction() as state:
+            kid_balance = self.payment_service.get_kid_balance(state)
 
         try:
             analysis = self.analysis_client.analyze(image_base64=image_base64)
@@ -45,11 +44,15 @@ class SnapAndLearnService:
                 ) from exc
             analysis = self._fallback_analysis()
 
+        state = self.state_repository.load()
         gigs_needed = self._gigs_needed(
             price_amount=analysis["estimated_price"]["amount"],
             balance_amount=kid_balance["amount"],
             state=state,
         )
+        ai_mode = self._ai_response_mode(analysis)
+        payment_mode = getattr(self.payment_service.payment_client, "mode", "fake_local")
+        mode = self._response_mode(ai_mode, payment_mode)
 
         return {
             "analysis": {
@@ -60,7 +63,9 @@ class SnapAndLearnService:
                 "confidence": analysis.get("confidence"),
             },
             "kid_balance": kid_balance,
-            "mode": self._response_mode(analysis),
+            "mode": mode,
+            "ai_mode": ai_mode,
+            "payment_mode": payment_mode,
             "fallback_mode": analysis.get("raw_provider") == "fallback",
         }
 
@@ -72,7 +77,9 @@ class SnapAndLearnService:
         gig_rewards = [
             Decimal(gig["reward_amount"])
             for gig in state.get("gigs", {}).values()
-            if gig.get("currency") == "EUR" and Decimal(gig["reward_amount"]) > 0
+            if gig.get("currency") == "EUR"
+            and gig.get("status") in {"open", "claimed", "awaiting_after_photo"}
+            and Decimal(gig["reward_amount"]) > 0
         ]
         baseline_reward = max(gig_rewards, default=Decimal("5.00"))
         return int((remaining / baseline_reward).to_integral_value(rounding=ROUND_CEILING))
@@ -94,9 +101,16 @@ class SnapAndLearnService:
             "raw_model": "snap-fallback-v1",
         }
 
-    def _response_mode(self, analysis: dict) -> str:
+    def _ai_response_mode(self, analysis: dict) -> str:
         if analysis.get("raw_provider") == "fallback":
+            return "fallback"
+        if analysis.get("raw_provider") == "fake":
+            return "fake"
+        return "real"
+
+    def _response_mode(self, ai_mode: str, payment_mode: str) -> str:
+        if ai_mode == "fallback":
             return "ai_fallback"
-        if analysis.get("raw_provider") == "fake" and getattr(self.payment_service.payment_client, "mode", "fake_local") == "fake_local":
+        if payment_mode == "fake_local":
             return "fake_local"
         return "real"
