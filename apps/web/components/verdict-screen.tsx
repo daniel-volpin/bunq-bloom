@@ -1,15 +1,23 @@
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Coins, ShieldCheck } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Coins, RefreshCcw, ShieldCheck } from "lucide-react";
 import type { CompleteGigResponse, Currency } from "@/lib/types";
 
 export function VerdictScreen({
   result,
   rewardAmount,
-  currency = "EUR"
+  currency = "EUR",
+  onRetryPayment,
+  onRetryWork,
+  retryPending = false,
+  backHref = "/gigs"
 }: {
   result: CompleteGigResponse;
   rewardAmount?: string;
   currency?: Currency;
+  onRetryPayment?: () => void;
+  onRetryWork?: () => void;
+  retryPending?: boolean;
+  backHref?: string;
 }) {
   const approved = result.verification.approved;
   const paymentSucceeded = result.payment?.status === "succeeded";
@@ -18,23 +26,23 @@ export function VerdictScreen({
   const shownCurrency = result.payment?.currency ?? currency;
 
   return (
-    <section className="space-y-4 rounded-[2rem] border border-white/70 bg-white/95 p-5 shadow-bloom">
+    <section className="space-y-4 rounded-3xl bg-card p-5 shadow-card">
       <div
         className={`rounded-[1.5rem] p-4 ${
-          approved ? "bg-bloom-leaf/12 text-emerald-900" : "bg-bloom-sun/30 text-amber-900"
+          approved ? "bg-bloom-green/10 text-bloom-green-deep" : "bg-bloom-sun/25 text-amber-900"
         }`}
       >
         <div className="mb-2 flex items-center gap-2 font-black">
           {approved ? <CheckCircle2 size={24} /> : <AlertTriangle size={24} />}
-          {approved ? "Approved" : "Needs another try"}
+          {approved ? (paymentSucceeded ? "Approved and paid" : "Approved") : "Needs another try"}
         </div>
         <p className="text-sm leading-6">{result.verification.message_for_kid}</p>
       </div>
 
       {result.fallback_mode ? (
         <div className="rounded-2xl bg-bloom-sky/10 p-4 text-sm leading-6 text-slate-700">
-          Demo fallback is active: <strong>{result.mode.replace("_", " ")}</strong>. This keeps
-          the flow visible while an integration is unavailable.
+          Demo fallback is active: <strong>{result.mode.replaceAll("_", " ")}</strong>. Bloom is
+          being explicit that part of the flow is running without a live integration.
         </div>
       ) : null}
 
@@ -72,8 +80,21 @@ export function VerdictScreen({
         </div>
       </div>
 
+      {paymentFailed ? (
+        <div className="flex items-start gap-2 rounded-2xl border border-bloom-coral/20 bg-bloom-coral/10 p-4 text-sm leading-6 text-slate-700">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-bloom-coral" />
+          <div>
+            <p className="font-extrabold text-foreground">Payment still needs a retry.</p>
+            <p>
+              The work was approved, but the transfer did not complete yet. You can retry payment
+              without taking new photos.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       {result.kid_balance ? (
-        <div className="rounded-[1.5rem] bg-bloom-leaf p-4 text-white">
+        <div className="rounded-[1.5rem] bg-bloom-green p-4 text-white">
           <p className="text-sm font-bold opacity-90">New balance</p>
           <p className="text-3xl font-black">
             {result.kid_balance.amount} {result.kid_balance.currency}
@@ -82,8 +103,32 @@ export function VerdictScreen({
         </div>
       ) : null}
 
+      {!approved && onRetryWork ? (
+        <button
+          type="button"
+          onClick={onRetryWork}
+          disabled={retryPending}
+          className="tap-target flex w-full items-center justify-center gap-2 rounded-2xl bg-bloom-green px-4 py-3 text-center font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCcw size={18} />
+          Try another after photo
+        </button>
+      ) : null}
+
+      {paymentFailed && onRetryPayment ? (
+        <button
+          type="button"
+          onClick={onRetryPayment}
+          disabled={retryPending}
+          className="tap-target flex w-full items-center justify-center gap-2 rounded-2xl bg-bloom-green px-4 py-3 text-center font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCcw size={18} />
+          {retryPending ? "Retrying payment..." : "Retry payment"}
+        </button>
+      ) : null}
+
       <Link
-        href="/gigs"
+        href={backHref}
         className="tap-target flex w-full items-center justify-center rounded-2xl bg-bloom-ink px-4 py-3 text-center font-black text-white"
       >
         Back to gigs

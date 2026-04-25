@@ -1,6 +1,7 @@
 import type {
   ApiErrorBody,
   BalanceResponse,
+  BloomReportResponse,
   BeforePhotoRequest,
   BeforePhotoResponse,
   ClaimGigResponse,
@@ -10,7 +11,11 @@ import type {
   CreateGigResponse,
   Gig,
   HealthResponse,
-  ListGigsResponse
+  ListGigsResponse,
+  RetryPaymentRequest,
+  RetryPaymentResponse,
+  SnapAndLearnRequest,
+  SnapAndLearnResponse
 } from "@/lib/types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
@@ -86,5 +91,19 @@ export const apiClient = {
       body: JSON.stringify(payload)
     }),
 
-  getKidBalance: () => request<BalanceResponse>("/api/balance/kid")
+  retryPayment: (gigId: string, payload: RetryPaymentRequest) =>
+    request<RetryPaymentResponse>(`/api/gigs/${gigId}/retry-payment`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+
+  getKidBalance: () => request<BalanceResponse>("/api/balance/kid"),
+
+  analyzeSnap: (payload: SnapAndLearnRequest) =>
+    request<SnapAndLearnResponse>("/api/snap-and-learn/analyze", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+
+  getWeeklyBloomReport: () => request<BloomReportResponse>("/api/bloom-report/weekly")
 };

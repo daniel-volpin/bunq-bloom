@@ -1,23 +1,27 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Home, PlusCircle } from "lucide-react";
 
 const items = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/gigs", label: "Gigs", icon: ClipboardList },
-  { href: "/parent/gigs/new", label: "New", icon: PlusCircle }
+  { href: "/", label: "Home", icon: "/bloom/tulip-emblem.svg", activeColor: "text-bloom-green" },
+  { href: "/gigs", label: "Gigs", icon: "/bloom/search-nav-icon.svg", activeColor: "text-bloom-blue" },
+  { href: "/wallet", label: "Wallet", icon: "/bloom/wallet-nav-icon.svg", activeColor: "text-bloom-coral" },
+  { href: "/profile", label: "Profile", icon: "/bloom/profile-flower-icon.svg", activeColor: "text-bloom-sun" }
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-[430px] px-4 pb-4">
-      <div className="grid grid-cols-3 rounded-[2rem] border border-white/70 bg-white/90 p-2 shadow-bloom backdrop-blur">
+    <nav
+      aria-label="Primary"
+      className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-[366px] rounded-3xl bg-card shadow-soft"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <div className="grid grid-cols-4 px-2 py-2">
         {items.map((item) => {
-          const Icon = item.icon;
           const active =
             item.href === "/"
               ? pathname === "/"
@@ -27,13 +31,18 @@ export function BottomNav() {
             <Link
               key={`${item.href}-${item.label}`}
               href={item.href}
-              className={`tap-target flex flex-col items-center justify-center rounded-3xl px-2 py-2 text-xs font-bold transition ${
-                active
-                  ? "bg-bloom-ink text-white"
-                  : "text-slate-500 hover:bg-bloom-cream"
+              aria-label={`${item.label} tab`}
+              className={`tap-target flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-1.5 text-[11px] leading-none transition-colors ${
+                active ? `${item.activeColor} font-extrabold` : "font-semibold text-muted-foreground"
               }`}
             >
-              <Icon size={20} strokeWidth={2.5} />
+              <Image
+                src={item.icon}
+                alt=""
+                width={24}
+                height={24}
+                className={`h-6 w-6 ${active ? "" : "opacity-60 grayscale"}`}
+              />
               <span>{item.label}</span>
             </Link>
           );
@@ -42,3 +51,4 @@ export function BottomNav() {
     </nav>
   );
 }
+

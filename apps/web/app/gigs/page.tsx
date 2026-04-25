@@ -1,118 +1,114 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { RefreshCw } from "lucide-react";
-import { GigCard } from "@/components/gig-card";
-import { ApiClientError, apiClient } from "@/lib/api-client";
-import type { Gig } from "@/lib/types";
+import { MessageSquarePlus, RefreshCcw, Trophy } from "lucide-react";
+import { GigListCard } from "@/components/bloom/gig-list-card";
+import { Header } from "@/components/bloom/header";
+import { gigBucket } from "@/lib/gig-presentation";
+import { useBloomSummary } from "@/lib/use-bloom-summary";
+
+type Filter = "available" | "in-progress" | "done";
+
+const filters: { id: Filter; label: string }[] = [
+  { id: "available", label: "Available" },
+  { id: "in-progress", label: "In progress" },
+  { id: "done", label: "Done" }
+];
 
 export default function GigsPage() {
-  const [gigs, setGigs] = useState<Gig[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { loading, error, gigs, reload } = useBloomSummary();
+  const [filter, setFilter] = useState<Filter>("available");
 
-  async function loadGigs(options?: { resetState?: boolean }) {
-    if (options?.resetState ?? true) {
-      setLoading(true);
-      setError(null);
-    }
+  const visible = useMemo(
+    () => gigs.filter((gig) => gigBucket(gig.status) === filter),
+    [filter, gigs]
+  );
 
-    try {
-      const response = await apiClient.listGigs();
-      setGigs(response.gigs);
-    } catch (caught) {
-      setError(
-        caught instanceof ApiClientError
-          ? caught.message
-          : "Could not reach the Bloom API. Start the backend or try again."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadInitialGigs() {
-      try {
-        const response = await apiClient.listGigs();
-        if (!active) {
-          return;
-        }
-        setGigs(response.gigs);
-      } catch (caught) {
-        if (!active) {
-          return;
-        }
-        setError(
-          caught instanceof ApiClientError
-            ? caught.message
-            : "Could not reach the Bloom API. Start the backend or try again."
-        );
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadInitialGigs();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  const openCount = gigs.filter((gig) => gig.status === "open").length;
 
   return (
-    <div className="space-y-5">
-      <header className="rounded-[2rem] bg-bloom-ink p-5 text-white shadow-bloom">
-        <p className="text-sm font-bold uppercase tracking-[0.2em] text-bloom-sun">bunq Bloom</p>
-        <h1 className="mt-2 text-4xl font-black leading-none">Pick a gig. Earn money.</h1>
-        <p className="mt-3 text-sm leading-6 text-white/80">
-          Take before and after photos so Bloom can check the work and pay the reward.
-        </p>
-      </header>
+    <div className="pb-8">
+      <Header actionHref="/gigs/new" actionLabel="Post gig" />
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-black">Available gigs</h2>
-        <button
-          type="button"
-          onClick={() => void loadGigs()}
-          className="tap-target inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-black shadow"
+      <div className="px-5 pt-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold text-foreground">Gigs</h1>
+            <p className="text-xs font-semibold text-muted-foreground">
+              {openCount} open · earn money the Bloom way
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={reload}
+            className="tap-target inline-flex items-center gap-2 rounded-full bg-card px-4 py-2 text-sm font-extrabold text-bloom-green-deep shadow-card"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Refresh
+          </button>
+        </div>
+
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          {filters.map((item) => {
+            const active = item.id === filter;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setFilter(item.id)}
+                className={`tap-target inline-flex shrink-0 items-center rounded-full px-4 text-sm font-bold transition-colors ${
+                  active
+                    ? "bg-bloom-green text-white shadow-card"
+                    : "bg-card text-muted-foreground"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {loading ? (
+          <div className="mt-5 rounded-3xl bg-card p-5 text-sm font-bold text-slate-600 shadow-card">
+            Loading gigs...
+          </div>
+        ) : null}
+
+        {error ? (
+          <div className="mt-5 rounded-3xl border border-bloom-coral/20 bg-bloom-coral/10 p-5 text-sm leading-6 text-slate-700 shadow-card">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="mt-5 space-y-3">
+          {!loading && visible.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-3xl bg-card p-8 text-center shadow-card">
+              <Trophy className="h-8 w-8 text-bloom-green" />
+              <p className="text-sm font-extrabold text-foreground">Nothing here yet</p>
+              <p className="text-xs font-semibold text-muted-foreground">
+                {filter === "available"
+                  ? "Post a new gig to kick off the next earning loop."
+                  : filter === "in-progress"
+                    ? "Claim a gig or finish the photo flow to see progress here."
+                    : "Paid gigs will show up here once the loop completes."}
+              </p>
+            </div>
+          ) : null}
+
+          {visible.map((gig) => (
+            <GigListCard key={gig.id} gig={gig} />
+          ))}
+        </div>
+
+        <Link
+          href="/gigs/suggest"
+          className="tap-target mt-5 flex w-full items-center justify-center gap-2 rounded-full border-2 border-dashed border-bloom-green/50 bg-transparent px-4 py-4 text-sm font-extrabold text-bloom-green-deep transition-colors active:bg-bloom-green/5"
         >
-          <RefreshCw size={16} />
-          Refresh
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="rounded-[1.5rem] bg-white/80 p-5 text-sm font-bold text-slate-600">
-          Loading gigs...
-        </div>
-      ) : null}
-
-      {error ? (
-        <div className="rounded-[1.5rem] border border-bloom-coral/30 bg-bloom-coral/10 p-5 text-sm leading-6 text-red-900">
-          {error}
-        </div>
-      ) : null}
-
-      {!loading && !error && gigs.length === 0 ? (
-        <div className="rounded-[1.5rem] bg-white/80 p-5 text-sm leading-6 text-slate-600">
-          No gigs yet.{" "}
-          <Link href="/parent/gigs/new" className="font-black text-bloom-sky">
-            Create one
-          </Link>
-          .
-        </div>
-      ) : null}
-
-      <div className="space-y-4">
-        {gigs.map((gig) => (
-          <GigCard key={gig.id} gig={gig} />
-        ))}
+          <MessageSquarePlus className="h-5 w-5" />
+          Suggest a gig to Mom or Dad
+        </Link>
       </div>
     </div>
   );
