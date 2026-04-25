@@ -8,6 +8,7 @@ from app.integrations.unconfigured_verification_client import UnconfiguredVerifi
 from app.repositories.photo_repository import PhotoRepository
 from app.repositories.state_repository import StateRepository
 from app.services.bloom_report_service import BloomReportService
+from app.services.gig_suggestion_service import GigSuggestionService
 from app.services.gig_service import GigService
 from app.services.payment_service import PaymentService
 from app.services.snap_and_learn_service import SnapAndLearnService
@@ -60,6 +61,12 @@ def get_gig_service() -> GigService:
         payment_service=_build_payment_service(settings),
         allow_ai_fallback=settings.demo_allow_ai_fallback,
     )
+
+
+@lru_cache
+def get_gig_suggestion_service() -> GigSuggestionService:
+    settings = get_settings()
+    return GigSuggestionService(state_repository=_build_state_repository(settings))
 
 
 @lru_cache

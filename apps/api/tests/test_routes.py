@@ -2,13 +2,14 @@ import base64
 
 from fastapi.testclient import TestClient
 
-from app.dependencies import get_gig_service
+from app.dependencies import get_gig_service, get_gig_suggestion_service
 from app.integrations.fake_payment_client import FakePaymentClient
 from app.integrations.fake_verification_client import FakeVerificationClient
 from app.main import create_app
 from app.repositories.photo_repository import PhotoRepository
 from app.repositories.state_repository import StateRepository
 from app.services.gig_service import GigService
+from app.services.gig_suggestion_service import GigSuggestionService
 from app.services.payment_service import PaymentService
 from app.services.bloom_report_service import BloomReportService
 from app.services.snap_and_learn_service import SnapAndLearnService
@@ -44,6 +45,9 @@ def make_service(tmp_path) -> GigService:
 def make_client(tmp_path) -> TestClient:
     app = create_app()
     app.dependency_overrides[get_gig_service] = lambda: make_service(tmp_path)
+    app.dependency_overrides[get_gig_suggestion_service] = lambda: GigSuggestionService(
+        state_repository=StateRepository(tmp_path / "state.json")
+    )
     return TestClient(app)
 
 
@@ -185,6 +189,85 @@ def test_health_route_reports_fake_integrations():
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+def test_gig_suggestion_approval_creates_gig_and_kid_notification(tmp_path):
+    client = make_client(tmp_path)
+
+    created = client.post(
+        "/api/gig-suggestions",
+        json={
+            "title": "Water the balcony plants",
+            "description": "Give every plant a small drink after school.",
+            "reward_amount": "2.5",
+            "currency": "EUR",
+            "verification_checklist": ["plants watered", "watering can put away"],
+        },
+    )
+
+    assert created.status_code == 200
+    suggestion = created.json()["suggestion"]
+    assert suggestion["status"] == "pending"
+    assert suggestion["reward_amount"] == "2.50"
+
+    approved = client.post(f"/api/gig-suggestions/{suggestion['id']}/approve")
+
+    assert approved.status_code == 200
+    body = approved.json()
+    assert body["suggestion"]["status"] == "approved"
+    assert body["gig"]["status"] == "open"
+    assert body["gig"]["title"] == "Water the balcony plants"
+    assert body["notification"]["read"] is False
+    assert body["notification"]["gig_id"] == body["gig"]["id"]
+
+    gigs = client.get("/api/gigs").json()["gigs"]
+    assert any(gig["id"] == body["gig"]["id"] for gig in gigs)
+
+    notifications = client.get("/api/notifications/kid").json()["notifications"]
+    assert [notification["id"] for notification in notifications] == [body["notification"]["id"]]
+
+    dismissed = client.post(f"/api/notifications/{body['notification']['id']}/dismiss")
+    assert dismissed.status_code == 200
+    assert dismissed.json()["notification"]["read"] is True
+    assert client.get("/api/notifications/kid").json()["notifications"] == []
+
+
+def test_gig_suggestion_approval_is_pending_only(tmp_path):
+    client = make_client(tmp_path)
+    suggestion = client.post(
+        "/api/gig-suggestions",
+        json={
+            "title": "Fold towels",
+            "description": "Fold the clean towels.",
+            "reward_amount": "3.00",
+            "currency": "EUR",
+            "verification_checklist": ["towels folded"],
+        },
+    ).json()["suggestion"]
+
+    assert client.post(f"/api/gig-suggestions/{suggestion['id']}/approve").status_code == 200
+    second_approval = client.post(f"/api/gig-suggestions/{suggestion['id']}/approve")
+
+    assert second_approval.status_code == 409
+    assert second_approval.json()["error"]["code"] == "invalid_suggestion_state"
+
+
+def test_gig_suggestion_rejects_whitespace_only_title(tmp_path):
+    client = make_client(tmp_path)
+
+    response = client.post(
+        "/api/gig-suggestions",
+        json={
+            "title": "   ",
+            "description": "Fold the clean towels.",
+            "reward_amount": "3.00",
+            "currency": "EUR",
+            "verification_checklist": ["towels folded"],
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_title"
 
 
 def test_complete_route_runs_fake_core_loop(tmp_path):

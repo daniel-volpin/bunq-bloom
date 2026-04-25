@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.errors import AppError
-from app.routes import balance, bloom_report, gigs, health, snap_and_learn
+from app.routes import balance, bloom_report, gig_suggestions, gigs, health, snap_and_learn
 
 
 def create_app() -> FastAPI:
@@ -17,6 +17,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router)
     app.include_router(gigs.router)
+    app.include_router(gig_suggestions.router)
     app.include_router(balance.router)
     app.include_router(snap_and_learn.router)
     app.include_router(bloom_report.router)
@@ -38,4 +39,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

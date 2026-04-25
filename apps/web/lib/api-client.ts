@@ -1,5 +1,6 @@
 import type {
   ApiErrorBody,
+  ApproveGigSuggestionResponse,
   BalanceResponse,
   BloomReportResponse,
   BeforePhotoRequest,
@@ -9,9 +10,14 @@ import type {
   CompleteGigResponse,
   CreateGigRequest,
   CreateGigResponse,
+  CreateGigSuggestionRequest,
+  CreateGigSuggestionResponse,
+  DismissKidNotificationResponse,
   Gig,
   HealthResponse,
+  ListGigSuggestionsResponse,
   ListGigsResponse,
+  ListKidNotificationsResponse,
   RetryPaymentRequest,
   RetryPaymentResponse,
   SnapAndLearnRequest,
@@ -72,6 +78,26 @@ export const apiClient = {
     request<CreateGigResponse>("/api/gigs", {
       method: "POST",
       body: JSON.stringify(payload)
+    }),
+
+  listGigSuggestions: () => request<ListGigSuggestionsResponse>("/api/gig-suggestions"),
+
+  createGigSuggestion: (payload: CreateGigSuggestionRequest) =>
+    request<CreateGigSuggestionResponse>("/api/gig-suggestions", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+
+  approveGigSuggestion: (suggestionId: string) =>
+    request<ApproveGigSuggestionResponse>(`/api/gig-suggestions/${suggestionId}/approve`, {
+      method: "POST"
+    }),
+
+  listKidNotifications: () => request<ListKidNotificationsResponse>("/api/notifications/kid"),
+
+  dismissKidNotification: (notificationId: string) =>
+    request<DismissKidNotificationResponse>(`/api/notifications/${notificationId}/dismiss`, {
+      method: "POST"
     }),
 
   claimGig: (gigId: string) =>

@@ -6,9 +6,11 @@ import { HomeFeaturedGig } from "@/components/bloom/home-featured-gig";
 import { Header } from "@/components/bloom/header";
 import { HomeGoalStrip } from "@/components/bloom/home-goal-strip";
 import { HeroCard } from "@/components/bloom/hero-card";
+import { KidApprovalNotification } from "@/components/bloom/kid-approval-notification";
 import { OpenGigs } from "@/components/bloom/open-gigs";
 import { WeeklyStats } from "@/components/bloom/weekly-stats";
 import { useBloomSummary } from "@/lib/use-bloom-summary";
+import { useKidNotifications } from "@/lib/use-kid-notifications";
 import { useSavedGoal } from "@/lib/use-saved-goal";
 
 function LoadingState() {
@@ -23,6 +25,7 @@ function LoadingState() {
 
 export default function HomePage() {
   const { savedGoal } = useSavedGoal();
+  const { notifications, dismiss: dismissNotification } = useKidNotifications();
   const {
     loading,
     error,
@@ -53,6 +56,13 @@ export default function HomePage() {
   return (
     <div className="pb-8">
       <Header />
+
+      {notifications[0] ? (
+        <KidApprovalNotification
+          notification={notifications[0]}
+          onDismiss={(notificationId) => void dismissNotification(notificationId)}
+        />
+      ) : null}
 
       {savedGoal && balanceResponse ? (
         <section className="px-5 pt-4">

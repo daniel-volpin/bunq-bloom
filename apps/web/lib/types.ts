@@ -27,6 +27,10 @@ export type BalanceRefreshStatus = "pending" | "ok" | "failed";
 
 export type BalanceSource = "bunq" | "fake";
 
+export type SuggestionStatus = "pending" | "approved";
+
+export type KidNotificationType = "gig_suggestion_approved";
+
 export type ApiErrorBody = {
   error: {
     code: string;
@@ -60,6 +64,57 @@ export type CreateGigRequest = {
 
 export type CreateGigResponse = {
   gig: Pick<Gig, "id" | "status">;
+};
+
+export type CreateGigSuggestionRequest = CreateGigRequest;
+
+export type GigSuggestion = {
+  id: string;
+  family_id: string;
+  suggested_by_user_id: string;
+  title: string;
+  description: string;
+  reward_amount: string;
+  currency: Currency;
+  verification_checklist: string[];
+  status: SuggestionStatus;
+  approved_gig_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateGigSuggestionResponse = {
+  suggestion: GigSuggestion;
+};
+
+export type ListGigSuggestionsResponse = {
+  suggestions: GigSuggestion[];
+};
+
+export type KidNotification = {
+  id: string;
+  user_id: string;
+  type: KidNotificationType;
+  title: string;
+  message: string;
+  gig_id: string | null;
+  suggestion_id: string | null;
+  read: boolean;
+  created_at: string;
+};
+
+export type ListKidNotificationsResponse = {
+  notifications: KidNotification[];
+};
+
+export type DismissKidNotificationResponse = {
+  notification: KidNotification;
+};
+
+export type ApproveGigSuggestionResponse = {
+  suggestion: GigSuggestion;
+  gig: Gig;
+  notification: KidNotification;
 };
 
 export type ListGigsResponse = {

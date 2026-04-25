@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { MessageSquarePlus, RefreshCcw, Trophy } from "lucide-react";
+import { Inbox, MessageSquarePlus, RefreshCcw, Trophy } from "lucide-react";
 import { GigListCard } from "@/components/bloom/gig-list-card";
 import { Header } from "@/components/bloom/header";
 import { gigBucket } from "@/lib/gig-presentation";
@@ -108,6 +108,14 @@ export default function GigsPage() {
         >
           <MessageSquarePlus className="h-5 w-5" />
           Suggest a gig to Mom or Dad
+        </Link>
+
+        <Link
+          href="/parent/gigs/suggestions"
+          className="tap-target mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-card px-4 py-4 text-sm font-extrabold text-bloom-green-deep shadow-card transition-transform active:scale-[0.99]"
+        >
+          <Inbox className="h-5 w-5" />
+          Parent approval inbox
         </Link>
       </div>
     </div>

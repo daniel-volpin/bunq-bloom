@@ -18,6 +18,8 @@ AiMode = Literal["real", "fake", "fallback"]
 PaymentMode = Literal["real", "fake_local", "bunq_fallback"]
 BalanceRefreshStatus = Literal["pending", "ok", "failed"]
 PaymentStatus = Literal["succeeded", "failed"]
+SuggestionStatus = Literal["pending", "approved"]
+NotificationType = Literal["gig_suggestion_approved"]
 
 
 class ErrorBody(BaseModel):
@@ -195,6 +197,63 @@ class GigCreateRequest(BaseModel):
     reward_amount: str
     currency: str = "EUR"
     verification_checklist: list[str] = Field(default_factory=list)
+
+
+class CreateGigSuggestionRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=1000)
+    reward_amount: str
+    currency: str = "EUR"
+    verification_checklist: list[str] = Field(default_factory=list)
+
+
+class GigSuggestionResponse(BaseModel):
+    id: str
+    family_id: str
+    suggested_by_user_id: str
+    title: str
+    description: str
+    reward_amount: str
+    currency: Currency
+    verification_checklist: list[str] = Field(default_factory=list)
+    status: SuggestionStatus
+    approved_gig_id: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class GigSuggestionEnvelopeResponse(BaseModel):
+    suggestion: GigSuggestionResponse
+
+
+class ListGigSuggestionsResponse(BaseModel):
+    suggestions: list[GigSuggestionResponse]
+
+
+class KidNotificationResponse(BaseModel):
+    id: str
+    user_id: str
+    type: NotificationType
+    title: str
+    message: str
+    gig_id: str | None = None
+    suggestion_id: str | None = None
+    read: bool
+    created_at: str
+
+
+class ListKidNotificationsResponse(BaseModel):
+    notifications: list[KidNotificationResponse]
+
+
+class KidNotificationEnvelopeResponse(BaseModel):
+    notification: KidNotificationResponse
+
+
+class ApproveGigSuggestionResponse(BaseModel):
+    suggestion: GigSuggestionResponse
+    gig: GigResponse
+    notification: KidNotificationResponse
 
 
 class BeforePhotoRequest(BaseModel):
