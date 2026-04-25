@@ -173,7 +173,8 @@ POST /v1/user/{userId}/monetary-account/{accountId}/payment
     "value": "{kid_account_iban_from_bunq}",
     "name": "Bloom Kid"
   },
-  "description": "bunq Bloom reward: Clean your room"
+  "description": "bunq Bloom reward: Clean your room",
+  "merchant_reference": "{gig_id}:{completion_attempt_id}"
 }
 ```
 
@@ -240,7 +241,8 @@ Implications:
 - Avoid repeated session creation in health checks.
 - Cache account IDs and the kid IBAN after resolving them.
 - Keep balance refreshes targeted.
-- Add retry/backoff only around safe operations.
+- Add rate limiting and retry/backoff only around safe read/auth operations.
+- Prefer `balance_after_mutation` from the Payment response over an immediate balance GET when bunq returns it.
 
 ## Payment Safety
 
@@ -251,6 +253,7 @@ Payment flow rules:
 - A gig can have at most one successful payment.
 - Retrying after `payment_failed` must not re-run AI if verification already passed.
 - The completion endpoint must return payment status clearly: `succeeded`, `failed`, or `fallback`.
+- Store the bunq payment id and `merchant_reference` for reconciliation.
 
 ## Backend Smoke Test Goal
 

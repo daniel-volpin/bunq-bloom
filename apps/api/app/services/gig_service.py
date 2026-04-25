@@ -265,6 +265,8 @@ class GigService:
             return response
 
         response = self._completion_response(gig, verification, payment, kid_balance)
+        if getattr(self.payment_service.payment_client, "mode", "fake_local") != "fake_local":
+            response["balance_refresh_status"] = "ok"
         self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
         return response
 

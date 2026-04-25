@@ -23,6 +23,7 @@ class PaymentService:
             "to_monetary_account_id": getattr(self.payment_client, "kid_account_id", "unknown"),
             "bunq_payment_id": payment_result["bunq_payment_id"],
             "status": payment_result["status"],
+            "merchant_reference": payment_result.get("merchant_reference"),
             "created_at": now,
             "updated_at": now,
         }
@@ -33,7 +34,9 @@ class PaymentService:
             kid_balance["amount"] = money_add(kid_balance["amount"], gig["reward_amount"])
             kid_balance["source"] = "fake"
         else:
-            kid_balance = None
+            kid_balance = payment_result.get("balance_after_mutation")
+            if kid_balance:
+                state["balances"]["kid_001"] = kid_balance
         return payment, kid_balance
 
     def record_failed_payment(self, *, state: dict, gig: dict, error_code: str, retryable: bool = True) -> dict:

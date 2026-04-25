@@ -86,6 +86,21 @@ class SlowRealPaymentClient:
         return {"amount": "27.50", "currency": "EUR", "source": "bunq"}
 
 
+class BalanceAfterMutationPaymentClient(SlowRealPaymentClient):
+    def __init__(self):
+        super().__init__()
+        self.balance_fetch_calls = 0
+
+    def create_parent_to_kid_payment(self, **kwargs):
+        result = super().create_parent_to_kid_payment(**kwargs)
+        result["balance_after_mutation"] = {"amount": "27.51", "currency": "EUR", "source": "bunq"}
+        return result
+
+    def get_kid_balance(self, state=None):
+        self.balance_fetch_calls += 1
+        return super().get_kid_balance(state)
+
+
 class RealPaymentBalanceFailureClient(SlowRealPaymentClient):
     def get_kid_balance(self, state=None):
         raise AppError("balance_refresh_failed", "Balance refresh failed.", status_code=502, retryable=True)
@@ -262,6 +277,24 @@ def test_fake_ai_with_real_payment_reports_fake_ai_mode(tmp_path):
     assert result["ai_mode"] == "fake"
     assert result["payment_mode"] == "real"
     assert result["fallback_mode"] is False
+
+
+def test_real_payment_uses_balance_after_mutation_without_extra_balance_fetch(tmp_path):
+    payment_client = BalanceAfterMutationPaymentClient()
+    service = make_service_with_clients(tmp_path, FakeVerificationClient(), payment_client)
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+    result = service.complete_gig(
+        "gig_001",
+        after_image_base64=image_data_url(b"after"),
+        idempotency_key="attempt-001",
+    )
+
+    assert result["gig"]["status"] == "paid"
+    assert result["kid_balance"] == {"amount": "27.51", "currency": "EUR", "source": "bunq"}
+    assert result["balance_refresh_status"] == "ok"
+    assert payment_client.balance_fetch_calls == 0
 
 
 def test_concurrent_completion_only_creates_one_real_payment(tmp_path):

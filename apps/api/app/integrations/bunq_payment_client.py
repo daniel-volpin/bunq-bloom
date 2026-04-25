@@ -1,7 +1,9 @@
 import sys
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from requests import HTTPError, RequestException
@@ -11,6 +13,19 @@ from app.settings import Settings
 
 
 SAFE_READ_RETRY_DELAYS_SECONDS = (0.5, 1.5)
+BUNQ_RATE_LIMITS = {
+    "GET": (3, 3.0),
+    "POST": (5, 3.0),
+    "PUT": (2, 3.0),
+    "SESSION": (1, 30.0),
+}
+
+
+@dataclass
+class _RateBucket:
+    max_calls: int
+    window_seconds: float
+    calls: list[float]
 
 
 class BunqPaymentClient:
@@ -35,6 +50,7 @@ class BunqPaymentClient:
         self.parent_account_id = settings.bunq_parent_account_id
         self.kid_account_id = settings.bunq_kid_account_id
         self._kid_account_iban = settings.bunq_kid_account_iban
+        self._rate_limiter = BunqRateLimiter()
         self._client = None
 
     def create_parent_to_kid_payment(
@@ -49,6 +65,7 @@ class BunqPaymentClient:
         kid_alias = self._get_kid_account_iban(client)
 
         try:
+            self._rate_limiter.wait("POST")
             response = client.post(
                 f"user/{client.user_id}/monetary-account/{self.parent_account_id}/payment",
                 {
@@ -59,6 +76,7 @@ class BunqPaymentClient:
                         "name": "Bloom Kid",
                     },
                     "description": description,
+                    "merchant_reference": idempotency_key[:255],
                 },
             )
         except HTTPError as exc:
@@ -95,6 +113,8 @@ class BunqPaymentClient:
             "bunq_payment_id": bunq_payment_id,
             "description": description,
             "idempotency_key": idempotency_key,
+            "merchant_reference": idempotency_key[:255],
+            "balance_after_mutation": self._extract_balance_after_mutation(response),
         }
 
     def get_kid_balance(self, state: dict | None = None) -> dict:
@@ -106,6 +126,25 @@ class BunqPaymentClient:
             "currency": balance.get("currency", "EUR"),
             "source": "bunq",
         }
+
+    def get_payment(self, bunq_payment_id: str) -> dict:
+        client = self._get_client()
+        try:
+            response = self._retry_safe_read(
+                lambda: client.get(
+                    f"user/{client.user_id}/monetary-account/{self.parent_account_id}/payment/{bunq_payment_id}"
+                )
+            )
+        except HTTPError as exc:
+            raise self._read_request_error(exc, "bunq sandbox payment lookup failed.") from exc
+        except RequestException as exc:
+            raise AppError(
+                "payment_network_failed",
+                "bunq sandbox payment lookup failed.",
+                status_code=502,
+                retryable=True,
+            ) from exc
+        return response[0].get("Payment", {}) if response else {}
 
     def _get_client(self) -> Any:
         if self._client:
@@ -126,7 +165,7 @@ class BunqPaymentClient:
 
         client = BunqClient(api_key=self.settings.bunq_api_key, sandbox=True)
         try:
-            self._retry_safe_read(client.authenticate)
+            self._retry_safe_read(client.authenticate, method="SESSION")
         except RequestException as exc:
             raise AppError(
                 "payment_network_failed",
@@ -157,6 +196,14 @@ class BunqPaymentClient:
             return AppError("payment_rate_limited", "bunq sandbox rate limit hit. Try again shortly.", status_code=429, retryable=True)
         return AppError("payment_failed", "bunq sandbox payment failed.", status_code=502, retryable=True)
 
+    def _read_request_error(self, exc: HTTPError, message: str) -> AppError:
+        status_code = exc.response.status_code if exc.response is not None else None
+        if status_code in {401, 403}:
+            return AppError("payment_auth_failed", message, status_code=502, retryable=True)
+        if status_code == 429:
+            return AppError("payment_rate_limited", message, status_code=429, retryable=True)
+        return AppError("payment_network_failed", message, status_code=502, retryable=True)
+
     def _get_kid_account_iban(self, client: Any) -> str:
         if self._kid_account_iban:
             return self._kid_account_iban
@@ -172,17 +219,21 @@ class BunqPaymentClient:
         )
 
     def _get_account(self, client: Any, account_id: str | None) -> dict:
-        accounts = self._retry_safe_read(lambda: client.get(f"user/{client.user_id}/monetary-account-bank"))
+        try:
+            accounts = self._retry_safe_read(lambda: client.get(f"user/{client.user_id}/monetary-account-bank"))
+        except HTTPError as exc:
+            raise self._read_request_error(exc, "bunq sandbox account lookup failed.") from exc
         for item in accounts:
             account = item.get("MonetaryAccountBank", {})
             if str(account.get("id")) == str(account_id):
                 return account
         raise AppError("payment_failed", "Configured bunq account was not found.", status_code=500)
 
-    def _retry_safe_read(self, operation: Callable[[], Any]) -> Any:
+    def _retry_safe_read(self, operation: Callable[[], Any], *, method: str = "GET") -> Any:
         last_exc = None
         for attempt in range(len(SAFE_READ_RETRY_DELAYS_SECONDS) + 1):
             try:
+                self._rate_limiter.wait(method)
                 return operation()
             except HTTPError as exc:
                 last_exc = exc
@@ -198,3 +249,43 @@ class BunqPaymentClient:
     def _is_retryable_read_http_error(self, exc: HTTPError) -> bool:
         status_code = exc.response.status_code if exc.response is not None else None
         return status_code in {429, 500, 502, 503, 504}
+
+    def _extract_balance_after_mutation(self, response: list[dict]) -> dict | None:
+        for item in response:
+            payment = item.get("Payment")
+            if not payment:
+                continue
+            balance = payment.get("balance_after_mutation")
+            if balance:
+                return {
+                    "amount": balance.get("value", "0.00"),
+                    "currency": balance.get("currency", "EUR"),
+                    "source": "bunq",
+                }
+        return None
+
+
+class BunqRateLimiter:
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._buckets = {
+            method: _RateBucket(max_calls=max_calls, window_seconds=window_seconds, calls=[])
+            for method, (max_calls, window_seconds) in BUNQ_RATE_LIMITS.items()
+        }
+
+    def wait(self, method: str) -> None:
+        bucket = self._buckets.get(method.upper())
+        if bucket is None:
+            return
+
+        while True:
+            sleep_for = 0.0
+            with self._lock:
+                now = time.monotonic()
+                bucket.calls = [call for call in bucket.calls if now - call < bucket.window_seconds]
+                if len(bucket.calls) < bucket.max_calls:
+                    bucket.calls.append(now)
+                    return
+                sleep_for = bucket.window_seconds - (now - bucket.calls[0])
+            if sleep_for > 0:
+                time.sleep(sleep_for)

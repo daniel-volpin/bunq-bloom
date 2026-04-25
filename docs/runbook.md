@@ -215,6 +215,8 @@ Known categories to document during implementation:
 - duplicate completion attempt
 - payment succeeded but balance refresh failed
 - payment response shape unknown
+- payment rate limit or network failure
+- payment reconciliation by bunq payment id or merchant reference
 
 ## Current Environment Note
 

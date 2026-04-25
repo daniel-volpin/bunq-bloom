@@ -158,7 +158,8 @@ Response on approval and payment success:
     "status": "succeeded",
     "amount": "5.00",
     "currency": "EUR",
-    "bunq_payment_id": "12345"
+    "bunq_payment_id": "12345",
+    "merchant_reference": "gig_001:completion_2026_04_25_001"
   },
   "kid_balance": {
     "amount": "27.50",
@@ -235,6 +236,8 @@ Mode values:
 `ai_mode` and `payment_mode` expose the two integration paths separately. Frontend copy should not claim real money moved unless `payment_mode` is `real`.
 
 If the bunq payment succeeds but the follow-up balance refresh fails, the gig still returns `status: paid` with the successful payment and adds `balance_refresh_status: failed`. Retrying must not create a second payment.
+
+Real bunq payments include `merchant_reference` for reconciliation. When bunq returns `balance_after_mutation`, the backend uses that balance directly and skips the immediate post-payment balance fetch.
 
 ### `POST /api/gigs/{gig_id}/retry-payment`
 

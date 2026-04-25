@@ -10,14 +10,32 @@ from app.settings import Settings
 class FakeBunqToolkitClient:
     user_id = 42
 
-    def __init__(self, *, fail_post: bool = False, include_iban: bool = True, malformed_post_response: bool = False):
+    def __init__(
+        self,
+        *,
+        fail_post: bool = False,
+        include_iban: bool = True,
+        malformed_post_response: bool = False,
+        include_balance_after_mutation: bool = False,
+    ):
         self.fail_post = fail_post
         self.include_iban = include_iban
         self.malformed_post_response = malformed_post_response
+        self.include_balance_after_mutation = include_balance_after_mutation
         self.posts = []
         self.get_calls = 0
 
     def get(self, endpoint: str):
+        if endpoint == "user/42/monetary-account/100/payment/12345":
+            return [
+                {
+                    "Payment": {
+                        "id": 12345,
+                        "merchant_reference": "gig_001:attempt-001",
+                        "amount": {"value": "-5.00", "currency": "EUR"},
+                    }
+                }
+            ]
         assert endpoint == "user/42/monetary-account-bank"
         self.get_calls += 1
         kid_aliases = []
@@ -46,7 +64,19 @@ class FakeBunqToolkitClient:
         self.posts.append((endpoint, body))
         if self.malformed_post_response:
             return [{"Unexpected": {"id": 12345}}]
-        return [{"Id": {"id": 12345}}]
+        response = [{"Id": {"id": 12345}}]
+        if self.include_balance_after_mutation:
+            response.append(
+                {
+                    "Payment": {
+                        "balance_after_mutation": {
+                            "value": "27.51",
+                            "currency": "EUR",
+                        }
+                    }
+                }
+            )
+        return response
 
 
 class HttpErrorBunqToolkitClient(FakeBunqToolkitClient):
@@ -125,6 +155,7 @@ def test_bunq_payment_client_creates_parent_to_kid_payment():
 
     assert result["status"] == "succeeded"
     assert result["bunq_payment_id"] == "12345"
+    assert result["merchant_reference"] == "gig_001:attempt-001"
     assert fake_toolkit_client.posts == [
         (
             "user/42/monetary-account/100/payment",
@@ -134,11 +165,12 @@ def test_bunq_payment_client_creates_parent_to_kid_payment():
                     "type": "IBAN",
                     "value": "NL00BUNQ0123456789",
                     "name": "Bloom Kid",
+                    },
+                    "description": "bunq Bloom reward: Clean your room",
+                    "merchant_reference": "gig_001:attempt-001",
                 },
-                "description": "bunq Bloom reward: Clean your room",
-            },
-        )
-    ]
+            )
+        ]
 
 
 def test_bunq_payment_client_uses_configured_kid_iban_without_account_lookup():
@@ -155,6 +187,23 @@ def test_bunq_payment_client_uses_configured_kid_iban_without_account_lookup():
     assert result["status"] == "succeeded"
     assert fake_toolkit_client.get_calls == 0
     assert fake_toolkit_client.posts[0][1]["counterparty_alias"]["value"] == "NL00BUNQCONFIGUREDIBAN"
+
+
+def test_bunq_payment_client_extracts_balance_after_mutation():
+    client = make_client(FakeBunqToolkitClient(include_balance_after_mutation=True))
+
+    result = client.create_parent_to_kid_payment(
+        amount="5.00",
+        currency="EUR",
+        description="bunq Bloom reward: Clean your room",
+        idempotency_key="gig_001:attempt-001",
+    )
+
+    assert result["balance_after_mutation"] == {
+        "amount": "27.51",
+        "currency": "EUR",
+        "source": "bunq",
+    }
 
 
 def test_bunq_payment_client_gets_kid_balance():
@@ -174,6 +223,15 @@ def test_bunq_payment_client_retries_safe_account_reads(monkeypatch):
 
     assert client.get_kid_balance()["amount"] == "27.50"
     assert fake_toolkit_client.get_calls == 2
+
+
+def test_bunq_payment_client_gets_payment_for_reconciliation():
+    client = make_client(FakeBunqToolkitClient())
+
+    payment = client.get_payment("12345")
+
+    assert payment["id"] == 12345
+    assert payment["merchant_reference"] == "gig_001:attempt-001"
 
 
 def test_bunq_payment_client_requires_kid_iban_alias():
@@ -224,6 +282,8 @@ def test_bunq_payment_client_maps_malformed_payment_response_to_non_retryable_un
 
 
 def test_bunq_payment_client_maps_auth_network_failure_to_retryable_error(monkeypatch, tmp_path):
+    monkeypatch.setattr(bunq_module, "BUNQ_RATE_LIMITS", {"SESSION": (100, 0)})
+    monkeypatch.setattr(bunq_module, "SAFE_READ_RETRY_DELAYS_SECONDS", (0,))
     toolkit_path = tmp_path / "toolkit"
     toolkit_path.mkdir()
     (toolkit_path / "bunq_client.py").write_text(
