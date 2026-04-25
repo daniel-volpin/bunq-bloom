@@ -18,6 +18,7 @@ import {
 import { Header } from "@/components/bloom/header";
 import { SavingsGoalDialog } from "@/components/bloom/savings-goal-dialog";
 import { useBloomSummary } from "@/lib/use-bloom-summary";
+import { useSavedGoal } from "@/lib/use-saved-goal";
 import { Switch } from "@/components/ui/switch";
 
 function ProfileStat({
@@ -104,10 +105,11 @@ export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { report, paidGigs, fallbackMode } = useBloomSummary();
+  const { savedGoal, setSavedGoal } = useSavedGoal();
   const [goalOpen, setGoalOpen] = useState(false);
   const [goalState, setGoalState] = useState({
-    label: report?.highlights[0]?.title ?? "",
-    amount: "45.00"
+    label: savedGoal?.label ?? report?.highlights[0]?.title ?? "",
+    amount: savedGoal?.amount ?? "45.00"
   });
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
@@ -135,6 +137,7 @@ export default function ProfilePage() {
 
   function handleGoalSave(goal: { label: string; amount: string }) {
     setGoalState(goal);
+    setSavedGoal(goal);
 
     if (hasSnapGoalPrefill) {
       router.replace("/profile", { scroll: false });

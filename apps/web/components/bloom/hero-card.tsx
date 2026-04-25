@@ -5,19 +5,16 @@ import { formatEuro } from "@/lib/gig-presentation";
 export function HeroCard({
   balanceAmount,
   balanceAmountLoading = false,
-  earnedThisWeek,
-  earnedThisWeekLoading = false,
+  connected = false,
   childName = "Lotte"
 }: {
   balanceAmount: string | number;
   balanceAmountLoading?: boolean;
-  earnedThisWeek?: string | number | null;
-  earnedThisWeekLoading?: boolean;
+  connected?: boolean;
   childName?: string;
 }) {
-  return (
-    <section className="px-5 pt-5">
-      <div className="relative overflow-hidden rounded-3xl bg-hero-bloom shadow-card">
+  const hero = (
+    <div className={`relative overflow-hidden bg-hero-bloom ${connected ? "" : "rounded-3xl shadow-card"}`}>
         <Image
           src="/bloom/hero-hills.svg"
           alt=""
@@ -53,14 +50,7 @@ export function HeroCard({
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-bloom-green text-primary-foreground">
                   <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={3} />
                 </span>
-                {earnedThisWeekLoading ? (
-                  <span className="h-4 w-24 animate-pulse rounded-full bg-bloom-green/15" />
-                ) : (
-                  <span className="text-xs font-extrabold text-bloom-green-deep">
-                    {formatEuro(earnedThisWeek ?? 0)}
-                    <span className="ml-1 font-semibold text-bloom-green-deep/70">this week</span>
-                  </span>
-                )}
+                <span className="text-xs font-extrabold text-bloom-green-deep">Saved so far</span>
               </div>
             </div>
           </div>
@@ -77,6 +67,11 @@ export function HeroCard({
           priority
         />
       </div>
-    </section>
   );
+
+  if (connected) {
+    return hero;
+  }
+
+  return <section className="px-5 pt-5 pb-3">{hero}</section>;
 }
