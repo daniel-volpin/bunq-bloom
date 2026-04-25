@@ -7,6 +7,7 @@ import { Header } from "@/components/bloom/header";
 import { HomeGoalStrip } from "@/components/bloom/home-goal-strip";
 import { HeroCard } from "@/components/bloom/hero-card";
 import { OpenGigs } from "@/components/bloom/open-gigs";
+import { WeeklyStats } from "@/components/bloom/weekly-stats";
 import { useBloomSummary } from "@/lib/use-bloom-summary";
 import { useSavedGoal } from "@/lib/use-saved-goal";
 
@@ -123,34 +124,33 @@ export default function HomePage() {
 
       {report ? (
         <section className="px-5 pt-4">
-          <div className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#fff7d6_0%,#fffdf7_48%,#ddf6ee_100%)] p-5 shadow-card">
-            <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-petal-blue/60 blur-2xl" />
-            <div className="pointer-events-none absolute -left-8 bottom-0 h-24 w-24 rounded-full bg-petal-coral/45 blur-2xl" />
-
-            <div className="relative">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 shadow-card backdrop-blur">
-                <Sparkles className="h-4 w-4 text-bloom-green" />
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-bloom-green-deep/70">
-                  Family highlight
+          <div className="rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-card backdrop-blur">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-bloom-green/10 px-3 py-1">
+                  <Sparkles className="h-4 w-4 text-bloom-green" />
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-bloom-green-deep/70">
+                    Weekly Bloom
+                  </p>
+                </div>
+                <h2 className="mt-3 text-xl font-extrabold leading-tight text-foreground">
+                  {report.highlights[0]?.title ?? "This week with Bloom"}
+                </h2>
+                <p className="mt-2 max-w-[30ch] text-sm font-semibold leading-6 text-slate-700">
+                  {report.savings_insight}
                 </p>
               </div>
+            </div>
 
-              <h2 className="mt-3 text-2xl font-extrabold leading-tight text-foreground">
-                {report.highlights[0]?.title ?? "This week with Bloom"}
-              </h2>
+            <WeeklyStats report={report} />
 
-              <p className="mt-2 max-w-[28ch] text-sm font-semibold leading-6 text-slate-700">
-                {report.highlights[0]?.detail ?? report.savings_insight}
+            <div className="mt-4 rounded-2xl bg-bloom-green/5 p-4 ring-1 ring-bloom-green/10">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-bloom-green-deep/70">
+                Talk about it tonight
               </p>
-
-              <div className="mt-4 rounded-2xl bg-white/85 p-4 shadow-card ring-1 ring-white/80 backdrop-blur">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-bloom-green-deep/70">
-                  Talk about it tonight
-                </p>
-                <p className="mt-2 text-sm font-extrabold leading-6 text-bloom-green-deep">
-                  {report.conversation_starter}
-                </p>
-              </div>
+              <p className="mt-2 text-sm font-extrabold leading-6 text-bloom-green-deep">
+                {report.conversation_starter}
+              </p>
             </div>
           </div>
         </section>
