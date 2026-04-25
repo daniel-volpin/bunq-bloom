@@ -22,6 +22,10 @@ Common error codes:
 - `invalid_image_type`
 - `verification_failed`
 - `payment_failed`
+- `payment_network_failed`
+- `payment_rate_limited`
+- `payment_auth_failed`
+- `payment_bad_request`
 - `payment_state_unknown`
 - `payment_not_retryable`
 - `duplicate_completion`
@@ -209,6 +213,7 @@ Response on payment failure after approval:
     "status": "failed",
     "amount": "5.00",
     "currency": "EUR",
+    "error_code": "payment_failed",
     "retryable": true
   },
   "kid_balance": null,
@@ -222,6 +227,7 @@ Response on payment failure after approval:
 Mode values:
 
 - `fake_local`: local fake payment mode was used, even if AI was real
+- `fake_ai`: deterministic fake AI was used with a real payment/balance provider
 - `real`: both AI and payment path used real configured providers
 - `ai_fallback`: Claude failed and explicit demo fallback was used
 - `bunq_fallback`: bunq failed and explicit demo fallback was used

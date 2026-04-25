@@ -91,9 +91,29 @@ Only run when explicitly working on bunq integration.
 Preconditions:
 
 - `BUNQ_API_KEY` configured locally.
-- `BUNQ_PARENT_ACCOUNT_ID` configured locally.
-- `BUNQ_KID_ACCOUNT_ID` configured locally.
 - `bunq_context.json` ignored and local only.
+
+Prepare sandbox accounts:
+
+```bash
+cd apps/api
+python scripts/setup_bunq_sandbox.py
+```
+
+If you need the helper to create Bloom accounts and request sandbox funds:
+
+```bash
+cd apps/api
+python scripts/setup_bunq_sandbox.py --create-missing-accounts --fund-parent 500.00
+```
+
+The setup helper prints only non-secret account IDs. Add those values to `apps/api/.env`:
+
+```text
+BLOOM_USE_FAKE_BUNQ=false
+BUNQ_PARENT_ACCOUNT_ID=...
+BUNQ_KID_ACCOUNT_ID=...
+```
 
 Expected smoke test:
 
@@ -147,6 +167,8 @@ BUNQ_PARENT_ACCOUNT_ID
 BUNQ_KID_ACCOUNT_ID
 BLOOM_BUNQ_TOOLKIT_PATH
 ```
+
+`BUNQ_PARENT_ACCOUNT_ID` and `BUNQ_KID_ACCOUNT_ID` can be selected by `python scripts/setup_bunq_sandbox.py`.
 
 Tiny bunq payment smoke test additionally requires:
 

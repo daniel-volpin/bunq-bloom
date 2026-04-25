@@ -59,6 +59,8 @@ def test_health_reports_lmstudio_integrations_and_ready_local_paths(monkeypatch,
 def test_health_reports_real_integration_missing_config_codes_without_values(monkeypatch, tmp_path):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "secret-anthropic-key")
     monkeypatch.setenv("BUNQ_API_KEY", "secret-bunq-key")
+    monkeypatch.setenv("BUNQ_PARENT_ACCOUNT_ID", "")
+    monkeypatch.setenv("BUNQ_KID_ACCOUNT_ID", "")
     client = make_client(monkeypatch, tmp_path, ai_provider="anthropic", fake_bunq=False)
 
     response = client.get("/api/health")
@@ -137,7 +139,7 @@ def test_health_treats_missing_but_creatable_local_dirs_as_ready(monkeypatch, tm
 def test_health_reports_local_fake_ai_mode_when_lmstudio_model_is_missing(monkeypatch, tmp_path):
     monkeypatch.setenv("BLOOM_AI_PROVIDER", "lmstudio")
     monkeypatch.setenv("BLOOM_LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
-    monkeypatch.delenv("BLOOM_LMSTUDIO_MODEL", raising=False)
+    monkeypatch.setenv("BLOOM_LMSTUDIO_MODEL", "")
     monkeypatch.setenv("BLOOM_USE_FAKE_BUNQ", "true")
     monkeypatch.setenv("BLOOM_STATE_PATH", str(tmp_path / "state" / "state.json"))
     monkeypatch.setenv("BLOOM_UPLOAD_DIR", str(tmp_path / "uploads"))

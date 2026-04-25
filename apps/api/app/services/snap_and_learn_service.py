@@ -113,4 +113,6 @@ class SnapAndLearnService:
             return "ai_fallback"
         if payment_mode == "fake_local":
             return "fake_local"
+        if ai_mode == "fake":
+            return "fake_ai"
         return "real"

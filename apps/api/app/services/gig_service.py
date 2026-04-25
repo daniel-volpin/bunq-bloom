@@ -347,6 +347,8 @@ class GigService:
             return "bunq_fallback"
         if payment_mode == "fake_local":
             return "fake_local"
+        if ai_mode == "fake":
+            return "fake_ai"
         return "real"
 
     def _paid_response(self, state: dict, gig: dict) -> dict:
@@ -368,10 +370,13 @@ class GigService:
         }
 
     def _public_payment(self, payment: dict) -> dict:
-        return {
+        public_payment = {
             "status": payment["status"],
             "amount": payment["amount"],
             "currency": payment["currency"],
             "bunq_payment_id": payment.get("bunq_payment_id"),
             "retryable": payment.get("retryable", payment["status"] == "failed"),
         }
+        if payment.get("error_code"):
+            public_payment["error_code"] = payment["error_code"]
+        return public_payment

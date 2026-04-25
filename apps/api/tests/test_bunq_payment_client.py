@@ -1,4 +1,5 @@
 import pytest
+from requests import ConnectionError, HTTPError, Response
 
 from app.errors import AppError
 from app.integrations.bunq_payment_client import BunqPaymentClient
@@ -45,6 +46,19 @@ class FakeBunqToolkitClient:
         return [{"Id": {"id": 12345}}]
 
 
+class HttpErrorBunqToolkitClient(FakeBunqToolkitClient):
+    def __init__(self, status_code: int):
+        super().__init__()
+        self.status_code = status_code
+
+    def post(self, endpoint: str, body: dict):
+        response = Response()
+        response.status_code = self.status_code
+        error = HTTPError(f"{self.status_code} error")
+        error.response = response
+        raise error
+
+
 def make_client(fake_toolkit_client: FakeBunqToolkitClient) -> BunqPaymentClient:
     settings = Settings(
         BUNQ_API_KEY="sandbox-api-key",
@@ -54,6 +68,20 @@ def make_client(fake_toolkit_client: FakeBunqToolkitClient) -> BunqPaymentClient
     client = BunqPaymentClient(settings)
     client._client = fake_toolkit_client
     return client
+
+
+class FailingAuthBunqClient:
+    def __init__(self, *, api_key: str, sandbox: bool):
+        self.api_key = api_key
+        self.sandbox = sandbox
+
+    def authenticate(self):
+        raise ConnectionError("DNS unavailable")
+
+
+class ImportableFailingAuthPaymentClient(BunqPaymentClient):
+    def _resolve_toolkit_path(self):
+        return self.settings.resolved_bunq_toolkit_path()
 
 
 def test_bunq_payment_client_creates_parent_to_kid_payment():
@@ -140,3 +168,56 @@ def test_bunq_payment_client_maps_malformed_payment_response_to_non_retryable_un
     assert exc.value.code == "payment_state_unknown"
     assert exc.value.status_code == 502
     assert exc.value.retryable is False
+
+
+def test_bunq_payment_client_maps_auth_network_failure_to_retryable_error(monkeypatch, tmp_path):
+    toolkit_path = tmp_path / "toolkit"
+    toolkit_path.mkdir()
+    (toolkit_path / "bunq_client.py").write_text(
+        "from tests.test_bunq_payment_client import FailingAuthBunqClient as BunqClient\n",
+        encoding="utf-8",
+    )
+    settings = Settings(
+        BUNQ_API_KEY="sandbox-api-key",
+        BUNQ_PARENT_ACCOUNT_ID="100",
+        BUNQ_KID_ACCOUNT_ID="200",
+        BLOOM_BUNQ_TOOLKIT_PATH=toolkit_path,
+    )
+    client = BunqPaymentClient(settings)
+
+    with pytest.raises(AppError) as exc:
+        client.create_parent_to_kid_payment(
+            amount="5.00",
+            currency="EUR",
+            description="bunq Bloom reward: Clean your room",
+            idempotency_key="gig_001:attempt-001",
+        )
+
+    assert exc.value.code == "payment_network_failed"
+    assert exc.value.status_code == 502
+    assert exc.value.retryable is True
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected_code", "retryable"),
+    [
+        (400, "payment_bad_request", False),
+        (401, "payment_auth_failed", True),
+        (403, "payment_auth_failed", True),
+        (429, "payment_rate_limited", True),
+        (500, "payment_failed", True),
+    ],
+)
+def test_bunq_payment_client_maps_payment_http_errors(status_code, expected_code, retryable):
+    client = make_client(HttpErrorBunqToolkitClient(status_code))
+
+    with pytest.raises(AppError) as exc:
+        client.create_parent_to_kid_payment(
+            amount="5.00",
+            currency="EUR",
+            description="bunq Bloom reward: Clean your room",
+            idempotency_key="gig_001:attempt-001",
+        )
+
+    assert exc.value.code == expected_code
+    assert exc.value.retryable is retryable

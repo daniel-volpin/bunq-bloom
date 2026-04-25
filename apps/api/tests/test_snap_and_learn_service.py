@@ -52,6 +52,13 @@ class RealSnapAndLearnClient:
         }
 
 
+class RealPaymentClient(FakePaymentClient):
+    mode = "real"
+
+    def get_kid_balance(self, state=None):
+        return {"amount": "22.50", "currency": "EUR", "source": "bunq"}
+
+
 def make_service(tmp_path, analysis_client, *, allow_fallback: bool = False) -> SnapAndLearnService:
     return SnapAndLearnService(
         state_repository=StateRepository(tmp_path / "state.json"),
@@ -59,6 +66,15 @@ def make_service(tmp_path, analysis_client, *, allow_fallback: bool = False) -> 
         analysis_client=analysis_client,
         payment_service=PaymentService(FakePaymentClient()),
         allow_ai_fallback=allow_fallback,
+    )
+
+
+def make_service_with_payment(tmp_path, analysis_client, payment_client) -> SnapAndLearnService:
+    return SnapAndLearnService(
+        state_repository=StateRepository(tmp_path / "state.json"),
+        photo_repository=PhotoRepository(tmp_path / "uploads"),
+        analysis_client=analysis_client,
+        payment_service=PaymentService(payment_client),
     )
 
 
@@ -128,6 +144,17 @@ def test_snap_and_learn_reports_fake_payment_mode_for_provider_backed_analysis(t
     assert result["fallback_mode"] is False
 
 
+def test_snap_and_learn_reports_fake_ai_mode_for_fake_analysis_with_real_payment(tmp_path):
+    service = make_service_with_payment(tmp_path, FakeSnapAndLearnClient(), RealPaymentClient())
+
+    result = service.analyze(image_data_url(b"item-photo"))
+
+    assert result["mode"] == "fake_ai"
+    assert result["ai_mode"] == "fake"
+    assert result["payment_mode"] == "real"
+    assert result["fallback_mode"] is False
+
+
 def test_dependency_selects_lmstudio_client_for_snap_and_learn(monkeypatch, tmp_path):
     state_dir = tmp_path / "state"
     upload_dir = tmp_path / "uploads"
@@ -160,7 +187,7 @@ def test_dependency_selects_unconfigured_client_for_snap_and_learn_when_ai_is_un
 
     monkeypatch.setenv("BLOOM_AI_PROVIDER", "lmstudio")
     monkeypatch.setenv("BLOOM_LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
-    monkeypatch.delenv("BLOOM_LMSTUDIO_MODEL", raising=False)
+    monkeypatch.setenv("BLOOM_LMSTUDIO_MODEL", "")
     monkeypatch.setenv("BLOOM_USE_FAKE_BUNQ", "true")
     monkeypatch.setenv("BLOOM_STATE_PATH", str(state_dir / "state.json"))
     monkeypatch.setenv("BLOOM_UPLOAD_DIR", str(upload_dir))

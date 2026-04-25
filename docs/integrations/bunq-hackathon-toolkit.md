@@ -120,6 +120,14 @@ Configure:
 - `BUNQ_PARENT_ACCOUNT_ID`
 - `BUNQ_KID_ACCOUNT_ID`
 
+Use the setup helper to select/create these accounts without printing secrets:
+
+```bash
+cd apps/api
+python scripts/setup_bunq_sandbox.py
+python scripts/setup_bunq_sandbox.py --create-missing-accounts --fund-parent 500.00
+```
+
 This avoids managing two API keys and two session contexts. If bunq sandbox rejects same-user account transfers, keep the Bloom `PaymentClient` interface and change only the bunq adapter internals to support two sandbox users.
 
 ## Endpoint Cheatsheet For Bloom
@@ -250,6 +258,13 @@ health check -> fetch kid balance -> create tiny sandbox payment -> fetch update
 ```
 
 This should be opt-in and never run by default in unit tests.
+
+The tiny payment smoke test has a second explicit guard because it creates a sandbox transfer:
+
+```bash
+cd apps/api
+BLOOM_RUN_SMOKE_TESTS=true BLOOM_RUN_BUNQ_PAYMENT_SMOKE=true pytest tests/test_integration_smoke.py::test_bunq_tiny_payment_smoke -q
+```
 
 ## Troubleshooting Notes
 

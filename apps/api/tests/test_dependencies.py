@@ -35,7 +35,7 @@ def test_uses_anthropic_client_when_provider_is_anthropic_and_key_present(monkey
 def test_uses_unconfigured_client_when_anthropic_key_is_missing(monkeypatch, tmp_path):
     _configure_common(monkeypatch, tmp_path)
     monkeypatch.setenv("BLOOM_AI_PROVIDER", "anthropic")
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
 
     service = get_gig_service()
 
@@ -57,7 +57,7 @@ def test_uses_unconfigured_client_when_lmstudio_model_is_missing(monkeypatch, tm
     _configure_common(monkeypatch, tmp_path)
     monkeypatch.setenv("BLOOM_AI_PROVIDER", "lmstudio")
     monkeypatch.setenv("BLOOM_LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
-    monkeypatch.delenv("BLOOM_LMSTUDIO_MODEL", raising=False)
+    monkeypatch.setenv("BLOOM_LMSTUDIO_MODEL", "")
 
     service = get_gig_service()
 
@@ -68,7 +68,7 @@ def test_lmstudio_provider_does_not_fall_through_to_anthropic(monkeypatch, tmp_p
     _configure_common(monkeypatch, tmp_path)
     monkeypatch.setenv("BLOOM_AI_PROVIDER", "lmstudio")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
-    monkeypatch.delenv("BLOOM_LMSTUDIO_MODEL", raising=False)
+    monkeypatch.setenv("BLOOM_LMSTUDIO_MODEL", "")
 
     service = get_gig_service()
 
@@ -82,7 +82,7 @@ def test_uses_unconfigured_client_when_missing_ai_config_in_real_mode(monkeypatc
     monkeypatch.setenv("BUNQ_API_KEY", "test-bunq-key")
     monkeypatch.setenv("BUNQ_PARENT_ACCOUNT_ID", "parent-account")
     monkeypatch.setenv("BUNQ_KID_ACCOUNT_ID", "kid-account")
-    monkeypatch.delenv("BLOOM_LMSTUDIO_MODEL", raising=False)
+    monkeypatch.setenv("BLOOM_LMSTUDIO_MODEL", "")
 
     service = get_gig_service()
 

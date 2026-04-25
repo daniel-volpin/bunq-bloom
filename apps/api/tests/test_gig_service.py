@@ -111,6 +111,15 @@ class RealVerificationClient(FakeVerificationClient):
         return result
 
 
+class FakeAiRealPaymentClient(FakePaymentClient):
+    mode = "real"
+    parent_account_id = "parent_001"
+    kid_account_id = "kid_001"
+
+    def get_kid_balance(self, state=None):
+        return {"amount": "27.50", "currency": "EUR", "source": "bunq"}
+
+
 def test_seeded_gig_can_complete_with_fake_adapters(tmp_path):
     service = make_service(tmp_path)
 
@@ -234,6 +243,24 @@ def test_real_ai_with_fake_payment_reports_fake_payment_mode(tmp_path):
     assert result["mode"] == "fake_local"
     assert result["ai_mode"] == "real"
     assert result["payment_mode"] == "fake_local"
+    assert result["fallback_mode"] is False
+
+
+def test_fake_ai_with_real_payment_reports_fake_ai_mode(tmp_path):
+    service = make_service_with_clients(tmp_path, FakeVerificationClient(), FakeAiRealPaymentClient())
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+    result = service.complete_gig(
+        "gig_001",
+        after_image_base64=image_data_url(b"after"),
+        idempotency_key="attempt-001",
+    )
+
+    assert result["gig"]["status"] == "paid"
+    assert result["mode"] == "fake_ai"
+    assert result["ai_mode"] == "fake"
+    assert result["payment_mode"] == "real"
     assert result["fallback_mode"] is False
 
 

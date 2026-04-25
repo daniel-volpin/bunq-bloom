@@ -273,7 +273,7 @@ def test_dependency_selects_unconfigured_client_for_bloom_report_when_ai_is_unco
 
     monkeypatch.setenv("BLOOM_AI_PROVIDER", "lmstudio")
     monkeypatch.setenv("BLOOM_LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
-    monkeypatch.delenv("BLOOM_LMSTUDIO_MODEL", raising=False)
+    monkeypatch.setenv("BLOOM_LMSTUDIO_MODEL", "")
     monkeypatch.setenv("BLOOM_USE_FAKE_BUNQ", "true")
     monkeypatch.setenv("BLOOM_STATE_PATH", str(state_dir / "state.json"))
     monkeypatch.setenv("BLOOM_UPLOAD_DIR", str(upload_dir))

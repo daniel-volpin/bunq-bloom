@@ -2,6 +2,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from requests import HTTPError, RequestException
+
 from app.errors import AppError
 from app.settings import Settings
 
@@ -53,6 +55,15 @@ class BunqPaymentClient:
                     "description": description,
                 },
             )
+        except HTTPError as exc:
+            raise self._payment_request_error(exc) from exc
+        except RequestException as exc:
+            raise AppError(
+                "payment_network_failed",
+                "bunq sandbox payment request failed.",
+                status_code=502,
+                retryable=True,
+            ) from exc
         except Exception as exc:
             raise AppError(
                 "payment_failed",
@@ -108,7 +119,15 @@ class BunqPaymentClient:
             ) from exc
 
         client = BunqClient(api_key=self.settings.bunq_api_key, sandbox=True)
-        client.authenticate()
+        try:
+            client.authenticate()
+        except RequestException as exc:
+            raise AppError(
+                "payment_network_failed",
+                "bunq sandbox authentication failed.",
+                status_code=502,
+                retryable=True,
+            ) from exc
         self._client = client
         return client
 
@@ -121,6 +140,16 @@ class BunqPaymentClient:
                 status_code=500,
             )
         return path
+
+    def _payment_request_error(self, exc: HTTPError) -> AppError:
+        status_code = exc.response.status_code if exc.response is not None else None
+        if status_code == 400:
+            return AppError("payment_bad_request", "bunq sandbox rejected the payment request.", status_code=502)
+        if status_code in {401, 403}:
+            return AppError("payment_auth_failed", "bunq sandbox authentication failed.", status_code=502, retryable=True)
+        if status_code == 429:
+            return AppError("payment_rate_limited", "bunq sandbox rate limit hit. Try again shortly.", status_code=429, retryable=True)
+        return AppError("payment_failed", "bunq sandbox payment failed.", status_code=502, retryable=True)
 
     def _get_kid_account_iban(self, client: Any) -> str:
         account = self._get_account(client, self.kid_account_id)
