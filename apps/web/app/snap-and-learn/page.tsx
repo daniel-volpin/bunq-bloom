@@ -6,9 +6,11 @@ import { ChevronLeft, Search, Sparkles } from "lucide-react";
 import { CameraCapture } from "@/components/camera-capture";
 import { SnapAndLearnResult } from "@/components/bloom/snap-and-learn-result";
 import { ApiClientError, apiClient } from "@/lib/api-client";
+import { useBloomSummary } from "@/lib/use-bloom-summary";
 import type { SnapAndLearnResponse } from "@/lib/types";
 
 export default function SnapAndLearnPage() {
+  const { report, reportLoading } = useBloomSummary();
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [result, setResult] = useState<SnapAndLearnResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +130,12 @@ export default function SnapAndLearnPage() {
           ) : null}
         </>
       ) : (
-        <SnapAndLearnResult result={result} onTryAnother={resetFlow} />
+        <SnapAndLearnResult
+          result={result}
+          report={report}
+          reportLoading={reportLoading}
+          onTryAnother={resetFlow}
+        />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Camera, Coins, Goal, Sparkles } from "lucide-react";
-import type { SnapAndLearnResponse } from "@/lib/types";
+import type { BloomReportResponse, SnapAndLearnResponse } from "@/lib/types";
 
 function buildSaveGoalHref(result: SnapAndLearnResponse) {
   const params = new URLSearchParams({
@@ -29,15 +29,71 @@ function modeMessage(result: SnapAndLearnResponse) {
   }
 }
 
+function paceMessage(result: SnapAndLearnResponse, report: BloomReportResponse | null, reportLoading: boolean) {
+  if (reportLoading) {
+    return "Checking your recent earning pace...";
+  }
+
+  if (!report) {
+    return "Bloom could not load your recent earning pace yet.";
+  }
+
+  const targetAmount = Number(result.analysis.estimated_price.amount);
+  const balanceAmount = Number(result.kid_balance.amount);
+  const weeklyEarnings = Number(report.stats.money_earned.amount);
+  const start = Date.parse(`${report.period.start_date}T00:00:00Z`);
+  const end = Date.parse(`${report.period.end_date}T00:00:00Z`);
+
+  if (!Number.isFinite(targetAmount) || !Number.isFinite(balanceAmount) || !Number.isFinite(weeklyEarnings)) {
+    return "Bloom could not turn this into a time estimate yet.";
+  }
+
+  const remainingAmount = Math.max(0, targetAmount - balanceAmount);
+
+  if (remainingAmount <= 0) {
+    return "At your current balance, you could already afford this now.";
+  }
+
+  if (weeklyEarnings <= 0) {
+    return "Finish a paid gig first, then Bloom can estimate how long this goal should take.";
+  }
+
+  const periodDays =
+    Number.isFinite(start) && Number.isFinite(end) ? Math.max(1, Math.round((end - start) / 86400000) + 1) : 7;
+  const dailyRate = weeklyEarnings / periodDays;
+
+  if (!Number.isFinite(dailyRate) || dailyRate <= 0) {
+    return "Bloom needs a bit more earning history before it can predict timing.";
+  }
+
+  const estimatedDays = Math.max(1, Math.ceil(remainingAmount / dailyRate));
+
+  if (estimatedDays === 1) {
+    return `At your recent pace of about EUR ${dailyRate.toFixed(2)} a day, this could take around 1 day.`;
+  }
+
+  if (estimatedDays < 14) {
+    return `At your recent pace of about EUR ${dailyRate.toFixed(2)} a day, this could take around ${estimatedDays} days.`;
+  }
+
+  const estimatedWeeks = Math.ceil(estimatedDays / 7);
+  return `At your recent pace of about EUR ${weeklyEarnings.toFixed(2)} a week, this could take around ${estimatedWeeks} weeks.`;
+}
+
 export function SnapAndLearnResult({
   result,
+  report,
+  reportLoading,
   onTryAnother
 }: {
   result: SnapAndLearnResponse;
+  report: BloomReportResponse | null;
+  reportLoading: boolean;
   onTryAnother: () => void;
 }) {
   const confidence = result.analysis.confidence;
   const saveGoalHref = buildSaveGoalHref(result);
+  const goalPaceMessage = paceMessage(result, report, reportLoading);
 
   return (
     <section className="space-y-4 rounded-3xl bg-card p-5 shadow-card">
@@ -80,6 +136,11 @@ export function SnapAndLearnResult({
       <div className="rounded-2xl bg-bloom-cream p-4 text-sm leading-6 text-slate-700">
         <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-500">Suggested goal</p>
         <p className="font-extrabold text-foreground">{result.analysis.suggested_goal}</p>
+      </div>
+
+      <div className="rounded-2xl bg-petal-blue p-4 text-sm leading-6 text-bloom-green-deep">
+        <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-500">Time to goal</p>
+        <p className="font-extrabold">{goalPaceMessage}</p>
       </div>
 
       <Link
