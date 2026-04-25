@@ -1,6 +1,10 @@
 import Link from "next/link";
-import { Camera, Coins, Goal, Sparkles } from "lucide-react";
+import { Coins, Goal, Sparkles } from "lucide-react";
 import type { BloomReportResponse, SnapAndLearnResponse } from "@/lib/types";
+
+function formatEurAmount(value: number) {
+  return `€${value.toFixed(2)}`;
+}
 
 function buildSaveGoalHref(result: SnapAndLearnResponse) {
   const params = new URLSearchParams({
@@ -14,28 +18,30 @@ function buildSaveGoalHref(result: SnapAndLearnResponse) {
 
 function modeMessage(result: SnapAndLearnResponse) {
   if (result.fallback_mode) {
-    return "Bloom used an explicit fallback estimate because AI was unavailable. Keep the suggestion honest in the demo.";
+    return "Demo note: Bloom used a fallback guess for this item.";
   }
 
   switch (result.mode) {
     case "fake_local":
-      return "The price idea is ready, and the balance is coming from local demo money data.";
+      return "Demo note: balance is coming from local demo data.";
     case "fake_ai":
-      return "The balance is live, but the item analysis came from demo AI.";
-    case "real":
-      return "This suggestion used the live configured providers.";
+      return "Demo note: this item guess came from demo AI.";
     default:
-      return "Bloom prepared a savings suggestion for this item.";
+      return null;
   }
 }
 
-function paceMessage(result: SnapAndLearnResponse, report: BloomReportResponse | null, reportLoading: boolean) {
+function paceMessage(
+  result: SnapAndLearnResponse,
+  report: BloomReportResponse | null,
+  reportLoading: boolean
+) {
   if (reportLoading) {
-    return "Checking your recent earning pace...";
+    return "Checking this week's pace";
   }
 
   if (!report) {
-    return "Bloom could not load your recent earning pace yet.";
+    return "No pace yet";
   }
 
   const targetAmount = Number(result.analysis.estimated_price.amount);
@@ -45,17 +51,17 @@ function paceMessage(result: SnapAndLearnResponse, report: BloomReportResponse |
   const end = Date.parse(`${report.period.end_date}T00:00:00Z`);
 
   if (!Number.isFinite(targetAmount) || !Number.isFinite(balanceAmount) || !Number.isFinite(weeklyEarnings)) {
-    return "Bloom could not turn this into a time estimate yet.";
+    return "No pace yet";
   }
 
   const remainingAmount = Math.max(0, targetAmount - balanceAmount);
 
   if (remainingAmount <= 0) {
-    return "At your current balance, you could already afford this now.";
+    return "You can get this now";
   }
 
   if (weeklyEarnings <= 0) {
-    return "Finish a paid gig first, then Bloom can estimate how long this goal should take.";
+    return "Do 1 paid gig first";
   }
 
   const periodDays =
@@ -63,21 +69,21 @@ function paceMessage(result: SnapAndLearnResponse, report: BloomReportResponse |
   const dailyRate = weeklyEarnings / periodDays;
 
   if (!Number.isFinite(dailyRate) || dailyRate <= 0) {
-    return "Bloom needs a bit more earning history before it can predict timing.";
+    return "No pace yet";
   }
 
   const estimatedDays = Math.max(1, Math.ceil(remainingAmount / dailyRate));
 
   if (estimatedDays === 1) {
-    return `At your recent pace of about EUR ${dailyRate.toFixed(2)} a day, this could take around 1 day.`;
+    return "About 1 day";
   }
 
   if (estimatedDays < 14) {
-    return `At your recent pace of about EUR ${dailyRate.toFixed(2)} a day, this could take around ${estimatedDays} days.`;
+    return `About ${estimatedDays} days`;
   }
 
   const estimatedWeeks = Math.ceil(estimatedDays / 7);
-  return `At your recent pace of about EUR ${weeklyEarnings.toFixed(2)} a week, this could take around ${estimatedWeeks} weeks.`;
+  return `About ${estimatedWeeks} weeks`;
 }
 
 export function SnapAndLearnResult({
@@ -91,84 +97,110 @@ export function SnapAndLearnResult({
   reportLoading: boolean;
   onTryAnother: () => void;
 }) {
-  const confidence = result.analysis.confidence;
   const saveGoalHref = buildSaveGoalHref(result);
   const goalPaceMessage = paceMessage(result, report, reportLoading);
+  const detailMessage = modeMessage(result);
+  const targetAmount = Number(result.analysis.estimated_price.amount);
+  const balanceAmount = Number(result.kid_balance.amount);
+  const remainingAmount =
+    Number.isFinite(targetAmount) && Number.isFinite(balanceAmount)
+      ? Math.max(0, targetAmount - balanceAmount)
+      : null;
+  const progressRatio =
+    Number.isFinite(targetAmount) && targetAmount > 0 && Number.isFinite(balanceAmount)
+      ? Math.min(balanceAmount / targetAmount, 1)
+      : null;
 
   return (
     <section className="space-y-4 rounded-3xl bg-card p-5 shadow-card">
       <div className="rounded-[1.5rem] bg-bloom-blue/10 p-4 text-bloom-green-deep">
         <div className="mb-2 flex items-center gap-2 font-black">
           <Sparkles className="h-5 w-5" />
-          Bloom spotted something to save for
+          Bloom found
         </div>
         <p className="text-xl font-extrabold text-foreground">{result.analysis.item_name}</p>
-        {typeof confidence === "number" && confidence > 0 ? (
-          <p className="mt-2 text-sm font-semibold text-slate-600">
-            About {Math.round(confidence * 100)}% confident in this estimate.
-          </p>
-        ) : null}
+        <p className="mt-2 text-sm font-semibold text-slate-600">Can this be your next goal?</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-slate-50 p-4">
           <Coins className="mb-2 h-5 w-5 text-bloom-green" />
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Estimated price</p>
-          <p className="text-lg font-black text-foreground">
-            {result.analysis.estimated_price.amount} {result.analysis.estimated_price.currency}
-          </p>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Costs</p>
+          <p className="text-lg font-black text-foreground">{formatEurAmount(targetAmount)}</p>
         </div>
         <div className="rounded-2xl bg-slate-50 p-4">
           <Goal className="mb-2 h-5 w-5 text-bloom-blue" />
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Gigs needed</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">More gigs</p>
           <p className="text-lg font-black text-foreground">{result.analysis.gigs_needed}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl bg-bloom-green p-4 text-white">
-        <p className="text-sm font-bold opacity-90">Current balance</p>
-        <p className="text-3xl font-black">
-          {result.kid_balance.amount} {result.kid_balance.currency}
-        </p>
-        <p className="text-xs font-bold opacity-80">Source: {result.kid_balance.source}</p>
-      </div>
+      {remainingAmount !== null ? (
+        <div className="space-y-3 rounded-2xl bg-slate-50 p-3">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-2xl bg-white p-3 text-center shadow-card">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">You have</p>
+              <p className="mt-1 text-sm font-black text-foreground">{formatEurAmount(balanceAmount)}</p>
+            </div>
+            <div className="rounded-2xl bg-white p-3 text-center shadow-card">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">It costs</p>
+              <p className="mt-1 text-sm font-black text-foreground">{formatEurAmount(targetAmount)}</p>
+            </div>
+            <div className="rounded-2xl bg-petal-yellow p-3 text-center">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Still need</p>
+              <p className="mt-1 text-sm font-black text-bloom-green-deep">
+                {formatEurAmount(remainingAmount)}
+              </p>
+            </div>
+          </div>
 
-      <div className="rounded-2xl bg-bloom-cream p-4 text-sm leading-6 text-slate-700">
-        <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-500">Suggested goal</p>
-        <p className="font-extrabold text-foreground">{result.analysis.suggested_goal}</p>
-      </div>
+          {progressRatio !== null ? (
+            <div>
+              <div className="mb-1 flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-slate-500">
+                <span>Goal progress</span>
+                <span>{Math.round(progressRatio * 100)}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white">
+                <div
+                  className="h-full rounded-full bg-bloom-green transition-[width]"
+                  style={{ width: `${Math.max(progressRatio * 100, 6)}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="rounded-2xl bg-petal-blue p-4 text-sm leading-6 text-bloom-green-deep">
-        <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-500">Time to goal</p>
-        <p className="font-extrabold">{goalPaceMessage}</p>
+        <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-500">Time</p>
+        <p className="text-lg font-extrabold">{goalPaceMessage}</p>
+        <p className="mt-1 text-xs font-semibold text-slate-600">Based on this week&apos;s earnings.</p>
       </div>
 
-      <Link
-        href={saveGoalHref}
-        className="tap-target flex w-full items-center justify-center rounded-2xl bg-bloom-blue px-4 py-3 text-center font-black text-white"
-      >
-        Save as my goal
-      </Link>
-
-      <div className="rounded-2xl bg-bloom-sky/10 p-4 text-sm leading-6 text-slate-700">
-        {modeMessage(result)}
+      <div className="rounded-2xl bg-card p-4 ring-1 ring-slate-100">
+        <p className="text-sm font-black text-foreground">Save for this now?</p>
+        <div className="mt-3 space-y-2">
+          <Link
+            href={saveGoalHref}
+            className="tap-target flex w-full items-center justify-center rounded-2xl bg-bloom-blue px-4 py-3 text-center font-black text-white"
+          >
+            Yes, make it my goal
+          </Link>
+          <button
+            type="button"
+            onClick={onTryAnother}
+            className="tap-target flex w-full items-center justify-center rounded-2xl bg-muted px-4 py-3 text-center font-black text-muted-foreground"
+          >
+            Try another
+          </button>
+        </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onTryAnother}
-        className="tap-target flex w-full items-center justify-center gap-2 rounded-2xl bg-bloom-green px-4 py-3 text-center font-black text-white"
-      >
-        <Camera className="h-4 w-4" />
-        Try another item
-      </button>
-
-      <Link
-        href="/gigs"
-        className="tap-target flex w-full items-center justify-center rounded-2xl bg-bloom-ink px-4 py-3 text-center font-black text-white"
-      >
-        Find gigs to earn it
-      </Link>
+      {detailMessage ? (
+        <div className="rounded-2xl bg-bloom-sky/10 p-3 text-xs font-semibold leading-5 text-slate-700">
+          {detailMessage}
+        </div>
+      ) : null}
     </section>
   );
 }
