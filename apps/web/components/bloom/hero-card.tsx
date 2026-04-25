@@ -4,11 +4,15 @@ import { formatEuro } from "@/lib/gig-presentation";
 
 export function HeroCard({
   balanceAmount,
+  balanceAmountLoading = false,
   earnedThisWeek,
+  earnedThisWeekLoading = false,
   childName = "Lotte"
 }: {
   balanceAmount: string | number;
-  earnedThisWeek: string | number;
+  balanceAmountLoading?: boolean;
+  earnedThisWeek?: string | number | null;
+  earnedThisWeekLoading?: boolean;
   childName?: string;
 }) {
   return (
@@ -36,19 +40,27 @@ export function HeroCard({
             </div>
 
             <div className="mt-5">
-              <p className="text-[40px] font-extrabold leading-none text-bloom-green-deep">
-                {formatEuro(balanceAmount).replace(/\.00$/, "")}
-                {formatEuro(balanceAmount).endsWith(".00") ? <span className="text-2xl">.00</span> : null}
-              </p>
+              {balanceAmountLoading ? (
+                <div className="h-12 w-36 animate-pulse rounded-full bg-bloom-green/15" />
+              ) : (
+                <p className="text-[40px] font-extrabold leading-none text-bloom-green-deep">
+                  {formatEuro(balanceAmount).replace(/\.00$/, "")}
+                  {formatEuro(balanceAmount).endsWith(".00") ? <span className="text-2xl">.00</span> : null}
+                </p>
+              )}
 
               <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-card/80 py-1 pl-1 pr-3 shadow-card backdrop-blur">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-bloom-green text-primary-foreground">
                   <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={3} />
                 </span>
-                <span className="text-xs font-extrabold text-bloom-green-deep">
-                  {formatEuro(earnedThisWeek)}
-                  <span className="ml-1 font-semibold text-bloom-green-deep/70">this week</span>
-                </span>
+                {earnedThisWeekLoading ? (
+                  <span className="h-4 w-24 animate-pulse rounded-full bg-bloom-green/15" />
+                ) : (
+                  <span className="text-xs font-extrabold text-bloom-green-deep">
+                    {formatEuro(earnedThisWeek ?? 0)}
+                    <span className="ml-1 font-semibold text-bloom-green-deep/70">this week</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>

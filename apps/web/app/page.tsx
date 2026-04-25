@@ -18,10 +18,21 @@ function LoadingState() {
 }
 
 export default function HomePage() {
-  const { loading, error, balanceResponse, report, openGigs, fallbackMode, modes, reload } =
+  const {
+    loading,
+    error,
+    balanceLoading,
+    reportLoading,
+    balanceResponse,
+    report,
+    openGigs,
+    fallbackMode,
+    modes,
+    reload
+  } =
     useBloomSummary();
 
-  if (loading && !balanceResponse && !report && openGigs.length === 0) {
+  if (loading && openGigs.length === 0) {
     return (
       <div className="pb-8">
         <Header />
@@ -36,7 +47,9 @@ export default function HomePage() {
 
       <HeroCard
         balanceAmount={balanceResponse?.balance.amount ?? "0.00"}
-        earnedThisWeek={report?.stats.money_earned.amount ?? "0.00"}
+        balanceAmountLoading={balanceLoading && !balanceResponse}
+        earnedThisWeek={report?.stats.money_earned.amount}
+        earnedThisWeekLoading={reportLoading && !report}
       />
 
       {fallbackMode ? (
@@ -101,6 +114,16 @@ export default function HomePage() {
             <p className="mt-4 rounded-2xl bg-bloom-green/10 p-3 text-sm font-semibold text-bloom-green-deep">
               {report.conversation_starter}
             </p>
+          </div>
+        </section>
+      ) : reportLoading ? (
+        <section className="px-5 pt-6">
+          <div className="rounded-3xl bg-card p-5 shadow-card">
+            <div className="h-3 w-28 animate-pulse rounded-full bg-slate-100" />
+            <div className="mt-3 h-6 w-40 animate-pulse rounded-full bg-slate-100" />
+            <div className="mt-3 h-4 w-full animate-pulse rounded-full bg-slate-100" />
+            <div className="mt-2 h-4 w-5/6 animate-pulse rounded-full bg-slate-100" />
+            <div className="mt-4 h-12 animate-pulse rounded-2xl bg-bloom-green/10" />
           </div>
         </section>
       ) : null}

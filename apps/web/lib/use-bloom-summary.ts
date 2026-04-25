@@ -7,6 +7,10 @@ import type { BalanceResponse, BloomReportResponse, Gig } from "@/lib/types";
 type BloomSummaryState = {
   loading: boolean;
   error: string | null;
+  balanceLoading: boolean;
+  balanceError: string | null;
+  reportLoading: boolean;
+  reportError: string | null;
   gigs: Gig[];
   balanceResponse: BalanceResponse | null;
   report: BloomReportResponse | null;
@@ -15,6 +19,10 @@ type BloomSummaryState = {
 const initialState: BloomSummaryState = {
   loading: true,
   error: null,
+  balanceLoading: true,
+  balanceError: null,
+  reportLoading: true,
+  reportError: null,
   gigs: [],
   balanceResponse: null,
   report: null
@@ -39,39 +47,88 @@ export function useBloomSummary() {
   useEffect(() => {
     let active = true;
 
-    async function loadSummary() {
-      setState((current) => ({ ...current, loading: true, error: null }));
+    void apiClient.listGigs().then(
+      (gigsResponse) => {
+        if (!active) {
+          return;
+        }
 
-      const [gigsResult, balanceResult, reportResult] = await Promise.allSettled([
-        apiClient.listGigs(),
-        apiClient.getKidBalance(),
-        apiClient.getWeeklyBloomReport()
-      ]);
+        setState((current) => ({
+          ...current,
+          loading: false,
+          error: current.balanceError,
+          gigs: gigsResponse.gigs
+        }));
+      },
+      (reason: unknown) => {
+        if (!active) {
+          return;
+        }
 
-      if (!active) {
-        return;
+        setState((current) => ({
+          ...current,
+          loading: false,
+          error: errorMessage(reason),
+          gigs: []
+        }));
       }
+    );
 
-      const nextState: BloomSummaryState = {
-        loading: false,
-        error: null,
-        gigs: gigsResult.status === "fulfilled" ? gigsResult.value.gigs : [],
-        balanceResponse: balanceResult.status === "fulfilled" ? balanceResult.value : null,
-        report: reportResult.status === "fulfilled" ? reportResult.value : null
-      };
+    void apiClient.getKidBalance().then(
+      (balanceResponse) => {
+        if (!active) {
+          return;
+        }
 
-      const firstFailure = [gigsResult, balanceResult, reportResult].find(
-        (result) => result.status === "rejected"
-      );
+        setState((current) => ({
+          ...current,
+          balanceLoading: false,
+          balanceError: null,
+          error: current.error,
+          balanceResponse
+        }));
+      },
+      (reason: unknown) => {
+        if (!active) {
+          return;
+        }
 
-      if (firstFailure && firstFailure.status === "rejected") {
-        nextState.error = errorMessage(firstFailure.reason);
+        const message = errorMessage(reason);
+
+        setState((current) => ({
+          ...current,
+          balanceLoading: false,
+          balanceError: message,
+          error: current.error ?? message
+        }));
       }
+    );
 
-      setState(nextState);
-    }
+    void apiClient.getWeeklyBloomReport().then(
+      (report) => {
+        if (!active) {
+          return;
+        }
 
-    void loadSummary();
+        setState((current) => ({
+          ...current,
+          reportLoading: false,
+          reportError: null,
+          report
+        }));
+      },
+      (reason: unknown) => {
+        if (!active) {
+          return;
+        }
+
+        setState((current) => ({
+          ...current,
+          reportLoading: false,
+          reportError: errorMessage(reason)
+        }));
+      }
+    );
 
     return () => {
       active = false;
@@ -102,6 +159,17 @@ export function useBloomSummary() {
     paidGigs,
     fallbackMode,
     modes,
-    reload: () => setReloadKey((current) => current + 1)
+    reload: () => {
+      setState((current) => ({
+        ...current,
+        loading: true,
+        error: null,
+        balanceLoading: true,
+        balanceError: null,
+        reportLoading: true,
+        reportError: null
+      }));
+      setReloadKey((current) => current + 1);
+    }
   };
 }

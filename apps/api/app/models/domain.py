@@ -57,6 +57,7 @@ def seed_state() -> dict[str, Any]:
         "verification_results": {},
         "payments": {},
         "completion_attempts": {},
+        "report_cache": {},
         "balances": {
             "kid_001": {"amount": "22.50", "currency": "EUR", "source": "fake"},
         },

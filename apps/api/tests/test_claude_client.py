@@ -78,7 +78,7 @@ def test_verify_parses_claude_json_and_returns_backend_schema(tmp_path):
     assert result["raw_model"] == "claude-3-5-sonnet-20241022"
 
     call = messages_api.calls[0]
-    assert call["model"] == "claude-3-5-sonnet-latest"
+    assert call["model"] == "claude-sonnet-4-6"
     assert call["temperature"] == 0
     assert call["max_tokens"] == 350
     prompt_text = call["messages"][0]["content"][0]["text"]
@@ -145,3 +145,69 @@ def test_verify_raises_on_missing_photo_file(tmp_path):
             before_photo=missing_photo,
             after_photo=_photo(tmp_path, "after.png"),
         )
+
+
+def test_generate_weekly_report_parses_json_wrapped_in_prose():
+    messages_api = StubMessagesAPI(
+        response=_response(
+            'Here is the report you requested:\n```json\n'
+            '{"highlights": [{"title": "Family win", "detail": "Two gigs brought in EUR 12.50."}], '
+            '"savings_insight": "Saving half would set aside EUR 6.25.", '
+            '"conversation_starter": "What goal should next week\'s earnings support?"}'
+            '\n```'
+        )
+    )
+    client = ClaudeVisionClient(
+        api_key="test-key",
+        anthropic_client=StubAnthropicClient(messages_api),
+    )
+
+    result = client.generate_weekly_report(
+        report_context={
+            "period": {"start_date": "2026-04-19", "end_date": "2026-04-25"},
+            "stats": {
+                "gigs_completed": 2,
+                "money_earned": {"amount": "12.50", "currency": "EUR"},
+                "average_reward": {"amount": "6.25", "currency": "EUR"},
+                "current_balance": {"amount": "35.00", "currency": "EUR", "source": "fake"},
+            },
+            "highlights": [],
+            "savings_insight": "",
+            "conversation_starter": "",
+        }
+    )
+
+    assert result["highlights"][0]["title"] == "Family win"
+    assert result["raw_provider"] == "anthropic"
+
+
+def test_generate_weekly_report_uses_configured_model():
+    messages_api = StubMessagesAPI(
+        response=_response(
+            '{"highlights": [{"title": "Family win", "detail": "Two gigs brought in EUR 12.50."}], '
+            '"savings_insight": "Saving half would set aside EUR 6.25.", '
+            '"conversation_starter": "What goal should next week\'s earnings support?"}'
+        )
+    )
+    client = ClaudeVisionClient(
+        api_key="test-key",
+        anthropic_client=StubAnthropicClient(messages_api),
+        model="claude-sonnet-4-6",
+    )
+
+    client.generate_weekly_report(
+        report_context={
+            "period": {"start_date": "2026-04-19", "end_date": "2026-04-25"},
+            "stats": {
+                "gigs_completed": 2,
+                "money_earned": {"amount": "12.50", "currency": "EUR"},
+                "average_reward": {"amount": "6.25", "currency": "EUR"},
+                "current_balance": {"amount": "35.00", "currency": "EUR", "source": "fake"},
+            },
+            "highlights": [],
+            "savings_insight": "",
+            "conversation_starter": "",
+        }
+    )
+
+    assert messages_api.calls[0]["model"] == "claude-sonnet-4-6"

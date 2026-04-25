@@ -9,8 +9,17 @@ import { WeeklyStats } from "@/components/bloom/weekly-stats";
 import { useBloomSummary } from "@/lib/use-bloom-summary";
 
 export default function WalletPage() {
-  const { loading, error, balanceResponse, report, paidGigs, fallbackMode, reload } =
-    useBloomSummary();
+  const {
+    loading,
+    error,
+    balanceLoading,
+    reportLoading,
+    balanceResponse,
+    report,
+    paidGigs,
+    fallbackMode,
+    reload
+  } = useBloomSummary();
 
   return (
     <div className="pb-8">
@@ -39,7 +48,9 @@ export default function WalletPage() {
         <div className="mt-4 space-y-4">
           <WalletHero
             balanceAmount={balanceResponse?.balance.amount ?? "0.00"}
-            earnedThisWeek={report?.stats.money_earned.amount ?? "0.00"}
+            balanceAmountLoading={balanceLoading && !balanceResponse}
+            earnedThisWeek={report?.stats.money_earned.amount}
+            earnedThisWeekLoading={reportLoading && !report}
           />
 
           {report ? <WeeklyStats report={report} /> : null}

@@ -25,7 +25,10 @@ def _build_ai_client(settings):
         return UnconfiguredVerificationClient(provider="lmstudio")
 
     return (
-        ClaudeVisionClient(api_key=settings.anthropic_api_key)
+        ClaudeVisionClient(
+            api_key=settings.anthropic_api_key,
+            model=settings.anthropic_model,
+        )
         if settings.anthropic_api_key
         else UnconfiguredVerificationClient(provider="anthropic")
     )

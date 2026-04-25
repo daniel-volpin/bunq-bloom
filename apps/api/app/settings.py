@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     ai_provider: Literal["anthropic", "lmstudio"] = Field(default="lmstudio", alias="BLOOM_AI_PROVIDER")
+    anthropic_model: str = Field(default="claude-sonnet-4-6", alias="BLOOM_ANTHROPIC_MODEL")
     lmstudio_base_url: str = Field(default="http://127.0.0.1:1234/v1", alias="BLOOM_LMSTUDIO_BASE_URL")
     lmstudio_model: str | None = Field(default=None, alias="BLOOM_LMSTUDIO_MODEL")
     lmstudio_api_key: str | None = Field(default=None, alias="BLOOM_LMSTUDIO_API_KEY")

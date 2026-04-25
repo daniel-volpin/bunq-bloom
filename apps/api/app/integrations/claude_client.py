@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
+from app.integrations.json_response import extract_json_text
 from app.models.domain import new_id
 from app.models.verification import VerificationResultModel
 
@@ -39,7 +40,7 @@ class ClaudeVisionClient:
         *,
         api_key: str,
         anthropic_client: Any | None = None,
-        model: str = "claude-3-5-sonnet-latest",
+        model: str = "claude-sonnet-4-6",
     ):
         self.api_key = api_key
         self.model = model
@@ -217,7 +218,7 @@ class ClaudeVisionClient:
         return combined
 
     def _parse_payload(self, content: str) -> _ClaudeVerificationPayload:
-        json_text = self._extract_json_text(content)
+        json_text = extract_json_text(content)
         try:
             payload = json.loads(json_text)
         except json.JSONDecodeError as exc:
@@ -229,7 +230,7 @@ class ClaudeVisionClient:
             raise RuntimeError("Claude response is missing required verification fields.") from exc
 
     def _parse_snap_payload(self, content: str) -> _ClaudeSnapAndLearnPayload:
-        json_text = self._extract_json_text(content)
+        json_text = extract_json_text(content)
         try:
             payload = json.loads(json_text)
         except json.JSONDecodeError as exc:
@@ -241,7 +242,7 @@ class ClaudeVisionClient:
             raise RuntimeError("Claude response is missing required Snap & Learn fields.") from exc
 
     def _parse_weekly_report_payload(self, content: str) -> _ClaudeWeeklyReportPayload:
-        json_text = self._extract_json_text(content)
+        json_text = extract_json_text(content)
         try:
             payload = json.loads(json_text)
         except json.JSONDecodeError as exc:
@@ -251,17 +252,6 @@ class ClaudeVisionClient:
             return _ClaudeWeeklyReportPayload.model_validate(payload)
         except ValidationError as exc:
             raise RuntimeError("Claude response is missing required weekly report fields.") from exc
-
-    def _extract_json_text(self, content: str) -> str:
-        stripped = content.strip()
-        if stripped.startswith("```"):
-            lines = stripped.splitlines()
-            if len(lines) >= 3 and lines[-1].strip() == "```":
-                body = lines[1:-1]
-                if body and body[0].strip().lower() == "json":
-                    body = body[1:]
-                stripped = "\n".join(body).strip()
-        return stripped
 
     def _split_data_url(self, image_base64: str) -> tuple[str, str]:
         if not image_base64.startswith("data:") or ";base64," not in image_base64:

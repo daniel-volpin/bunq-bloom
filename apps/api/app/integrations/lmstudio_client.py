@@ -6,6 +6,7 @@ from typing import Any
 import requests
 from pydantic import BaseModel, Field, ValidationError
 
+from app.integrations.json_response import extract_json_text
 from app.models.domain import new_id
 from app.models.verification import VerificationResultModel
 
@@ -200,7 +201,7 @@ class LMStudioVisionClient:
         return None
 
     def _parse_payload(self, content: str) -> _LMStudioVerificationPayload:
-        json_text = self._extract_json_text(content)
+        json_text = extract_json_text(content)
         try:
             payload = json.loads(json_text)
         except json.JSONDecodeError as exc:
@@ -212,7 +213,7 @@ class LMStudioVisionClient:
             raise RuntimeError("LM Studio response is missing required verification fields.") from exc
 
     def _parse_snap_payload(self, content: str) -> _LMStudioSnapAndLearnPayload:
-        json_text = self._extract_json_text(content)
+        json_text = extract_json_text(content)
         try:
             payload = json.loads(json_text)
         except json.JSONDecodeError as exc:
@@ -224,7 +225,7 @@ class LMStudioVisionClient:
             raise RuntimeError("LM Studio response is missing required Snap & Learn fields.") from exc
 
     def _parse_weekly_report_payload(self, content: str) -> _LMStudioWeeklyReportPayload:
-        json_text = self._extract_json_text(content)
+        json_text = extract_json_text(content)
         try:
             payload = json.loads(json_text)
         except json.JSONDecodeError as exc:
@@ -234,17 +235,6 @@ class LMStudioVisionClient:
             return _LMStudioWeeklyReportPayload.model_validate(payload)
         except ValidationError as exc:
             raise RuntimeError("LM Studio response is missing required weekly report fields.") from exc
-
-    def _extract_json_text(self, content: str) -> str:
-        stripped = content.strip()
-        if stripped.startswith("```"):
-            lines = stripped.splitlines()
-            if len(lines) >= 3 and lines[-1].strip() == "```":
-                body = lines[1:-1]
-                if body and body[0].strip().lower() == "json":
-                    body = body[1:]
-                stripped = "\n".join(body).strip()
-        return stripped
 
     def _image_block(self, photo: dict) -> dict[str, Any]:
         storage_ref = photo.get("storage_ref")

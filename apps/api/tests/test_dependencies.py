@@ -26,10 +26,12 @@ def test_uses_anthropic_client_when_provider_is_anthropic_and_key_present(monkey
     _configure_common(monkeypatch, tmp_path)
     monkeypatch.setenv("BLOOM_AI_PROVIDER", "anthropic")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+    monkeypatch.setenv("BLOOM_ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
     service = get_gig_service()
 
     assert isinstance(service.verification_client, ClaudeVisionClient)
+    assert service.verification_client.model == "claude-sonnet-4-6"
 
 
 def test_uses_unconfigured_client_when_anthropic_key_is_missing(monkeypatch, tmp_path):

@@ -33,3 +33,6 @@ pnpm-debug.log*
 # Tooling
 .deepeval/
 .DS_Store
+
+
+apps/api/bunq_bloom_api.egg-info

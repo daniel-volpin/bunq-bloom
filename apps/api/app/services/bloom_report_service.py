@@ -1,11 +1,16 @@
+import hashlib
+import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import logging
+from copy import deepcopy
 from typing import Any, Callable
 
 from app.errors import AppError
 
 
 _AI_NOT_CONFIGURED_ERROR_CODES = {"analysis_not_configured", "report_generation_not_configured", "verification_not_configured"}
+logger = logging.getLogger(__name__)
 
 
 class BloomReportService:
@@ -33,14 +38,24 @@ class BloomReportService:
             {"amount": "0.00", "currency": "EUR", "source": "unknown"},
         )
 
-        weekly_payments = []
-        for payment in state.get("payments", {}).values():
-            if payment.get("status") != "succeeded":
-                continue
-            payment_date = self._parse_iso_date(payment.get("created_at"))
-            if payment_date is None or payment_date < start_date or payment_date > end_date:
-                continue
-            weekly_payments.append(payment)
+        weekly_payments = self._weekly_payments(
+            payments=state.get("payments", {}).values(),
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        cache_fingerprint = self._cache_fingerprint(
+            current_date=end_date.isoformat(),
+            current_balance=current_balance,
+            weekly_payments=weekly_payments,
+        )
+        cached_report = self._cached_report(
+            state=state,
+            current_date=end_date.isoformat(),
+            fingerprint=cache_fingerprint,
+        )
+        if cached_report is not None:
+            return cached_report
 
         total_earned = sum(Decimal(payment["amount"]) for payment in weekly_payments)
         gigs_completed = len(weekly_payments)
@@ -84,11 +99,13 @@ class BloomReportService:
                 mode = self._response_mode(narrative)
                 fallback_mode = narrative.get("raw_provider") == "fallback"
             except AppError as exc:
+                logger.warning("Weekly Bloom Report AI generation returned AppError: %s", exc.code)
                 if not self.allow_ai_fallback or exc.code not in _AI_NOT_CONFIGURED_ERROR_CODES:
                     raise
                 mode = "ai_fallback"
                 fallback_mode = True
             except Exception as exc:
+                logger.exception("Weekly Bloom Report AI generation failed")
                 if not self.allow_ai_fallback:
                     raise AppError(
                         "report_generation_failed",
@@ -101,7 +118,87 @@ class BloomReportService:
 
         report["mode"] = mode
         report["fallback_mode"] = fallback_mode
+        self._store_cached_report(
+            current_date=end_date.isoformat(),
+            fingerprint=cache_fingerprint,
+            generated_at=now.isoformat(),
+            report=report,
+        )
         return report
+
+    def _weekly_payments(self, *, payments, start_date, end_date) -> list[dict]:
+        weekly_payments = []
+        for payment in payments:
+            if payment.get("status") != "succeeded":
+                continue
+            payment_date = self._parse_iso_date(payment.get("created_at"))
+            if payment_date is None or payment_date < start_date or payment_date > end_date:
+                continue
+            weekly_payments.append(payment)
+        return weekly_payments
+
+    def _cache_fingerprint(
+        self,
+        *,
+        current_date: str,
+        current_balance: dict,
+        weekly_payments: list[dict],
+    ) -> str:
+        payment_snapshot = sorted(
+            [
+                {
+                    "id": payment.get("id"),
+                    "gig_id": payment.get("gig_id"),
+                    "amount": payment.get("amount"),
+                    "currency": payment.get("currency"),
+                    "status": payment.get("status"),
+                    "created_at": payment.get("created_at"),
+                    "updated_at": payment.get("updated_at"),
+                }
+                for payment in weekly_payments
+            ],
+            key=lambda payment: str(payment.get("id") or ""),
+        )
+        payload = {
+            "current_date": current_date,
+            "current_balance": current_balance,
+            "weekly_payments": payment_snapshot,
+            "narrative_mode": getattr(self.narrative_client, "mode", "none") if self.narrative_client else "none",
+            "narrative_model": getattr(self.narrative_client, "model", None) if self.narrative_client else None,
+            "allow_ai_fallback": self.allow_ai_fallback,
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def _cached_report(self, *, state: dict, current_date: str, fingerprint: str) -> dict | None:
+        entry = state.get("report_cache", {}).get("weekly")
+        if not isinstance(entry, dict):
+            return None
+        if entry.get("current_date") != current_date:
+            return None
+        if entry.get("fingerprint") != fingerprint:
+            return None
+        report = entry.get("report")
+        if not isinstance(report, dict):
+            return None
+        return deepcopy(report)
+
+    def _store_cached_report(
+        self,
+        *,
+        current_date: str,
+        fingerprint: str,
+        generated_at: str,
+        report: dict,
+    ) -> None:
+        with self.state_repository.transaction() as state:
+            report_cache = state.setdefault("report_cache", {})
+            report_cache["weekly"] = {
+                "current_date": current_date,
+                "fingerprint": fingerprint,
+                "generated_at": generated_at,
+                "report": deepcopy(report),
+            }
 
     def _highlights(
         self,

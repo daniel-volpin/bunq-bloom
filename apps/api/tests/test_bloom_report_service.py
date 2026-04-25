@@ -60,6 +60,25 @@ class RealBloomNarrativeClient:
         }
 
 
+class CountingBloomNarrativeClient:
+    mode = "real"
+
+    def __init__(self):
+        self.calls = 0
+
+    def generate_weekly_report(self, *, report_context: dict) -> dict:
+        self.calls += 1
+        return {
+            "highlights": [
+                {"title": "Cached highlight", "detail": f"Call {self.calls} generated this report."}
+            ],
+            "savings_insight": f"Call {self.calls} savings insight.",
+            "conversation_starter": "What should next week's gig money be saved for first?",
+            "raw_provider": "anthropic",
+            "raw_model": "claude-sonnet-4-6",
+        }
+
+
 def seed_weekly_state(tmp_path) -> dict:
     repository = StateRepository(tmp_path / "state.json")
     state = repository.load()
@@ -263,6 +282,62 @@ def test_bloom_report_raises_retryable_error_without_fallback(tmp_path):
         assert exc.retryable is True
     else:
         raise AssertionError("Expected AppError for failed weekly report generation without fallback")
+
+
+def test_bloom_report_uses_same_day_cache_for_unchanged_data(tmp_path):
+    seed_weekly_state(tmp_path)
+    narrative_client = CountingBloomNarrativeClient()
+    service = BloomReportService(
+        state_repository=StateRepository(tmp_path / "state.json"),
+        narrative_client=narrative_client,
+        now_fn=fixed_now,
+    )
+
+    first_report = service.get_weekly_report()
+    second_report = service.get_weekly_report()
+
+    assert narrative_client.calls == 1
+    assert second_report == first_report
+    assert second_report["highlights"][0]["title"] == "Cached highlight"
+
+
+def test_bloom_report_invalidates_cache_on_next_day(tmp_path):
+    seed_weekly_state(tmp_path)
+    narrative_client = CountingBloomNarrativeClient()
+    service = BloomReportService(
+        state_repository=StateRepository(tmp_path / "state.json"),
+        narrative_client=narrative_client,
+        now_fn=fixed_now,
+    )
+
+    service.get_weekly_report()
+    service.now_fn = lambda: datetime(2026, 4, 26, 12, 0, tzinfo=timezone.utc)
+    report = service.get_weekly_report()
+
+    assert narrative_client.calls == 2
+    assert report["highlights"][0]["detail"] == "Call 2 generated this report."
+
+
+def test_bloom_report_invalidates_cache_when_same_day_data_changes(tmp_path):
+    seed_weekly_state(tmp_path)
+    narrative_client = CountingBloomNarrativeClient()
+    state_repository = StateRepository(tmp_path / "state.json")
+    service = BloomReportService(
+        state_repository=state_repository,
+        narrative_client=narrative_client,
+        now_fn=fixed_now,
+    )
+
+    service.get_weekly_report()
+
+    with state_repository.transaction() as state:
+        state["balances"]["kid_001"] = {"amount": "42.50", "currency": "EUR", "source": "fake"}
+
+    report = service.get_weekly_report()
+
+    assert narrative_client.calls == 2
+    assert report["stats"]["current_balance"] == {"amount": "42.50", "currency": "EUR", "source": "fake"}
+    assert report["highlights"][0]["detail"] == "Call 2 generated this report."
 
 
 def test_dependency_selects_unconfigured_client_for_bloom_report_when_ai_is_unconfigured(monkeypatch, tmp_path):

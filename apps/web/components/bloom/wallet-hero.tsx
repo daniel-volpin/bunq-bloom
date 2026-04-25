@@ -4,10 +4,14 @@ import { formatEuro } from "@/lib/gig-presentation";
 
 export function WalletHero({
   balanceAmount,
-  earnedThisWeek
+  balanceAmountLoading = false,
+  earnedThisWeek,
+  earnedThisWeekLoading = false
 }: {
   balanceAmount: string | number;
-  earnedThisWeek: string | number;
+  balanceAmountLoading?: boolean;
+  earnedThisWeek?: string | number | null;
+  earnedThisWeekLoading?: boolean;
 }) {
   return (
     <div className="relative overflow-hidden rounded-3xl bg-hero-bloom p-5 shadow-card">
@@ -17,9 +21,13 @@ export function WalletHero({
           <p className="text-xs font-bold uppercase tracking-wide text-bloom-green-deep/70">
             My balance
           </p>
-          <p className="mt-1 text-4xl font-extrabold leading-none text-bloom-green-deep">
-            {formatEuro(balanceAmount)}
-          </p>
+          {balanceAmountLoading ? (
+            <div className="mt-1 h-10 w-28 animate-pulse rounded-full bg-bloom-green/15" />
+          ) : (
+            <p className="mt-1 text-4xl font-extrabold leading-none text-bloom-green-deep">
+              {formatEuro(balanceAmount)}
+            </p>
+          )}
           <p className="mt-2 text-xs font-semibold text-bloom-green-deep/70">
             Available to spend or save
           </p>
@@ -30,7 +38,11 @@ export function WalletHero({
 
       <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1.5 text-xs font-extrabold text-bloom-green-deep shadow-card backdrop-blur">
         <TrendingUp className="h-3.5 w-3.5" />
-        {formatEuro(earnedThisWeek)} this week
+        {earnedThisWeekLoading ? (
+          <span className="h-4 w-24 animate-pulse rounded-full bg-bloom-green/15" />
+        ) : (
+          <>{formatEuro(earnedThisWeek ?? 0)} this week</>
+        )}
       </div>
     </div>
   );
