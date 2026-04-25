@@ -56,7 +56,7 @@ export function useBloomSummary() {
         setState((current) => ({
           ...current,
           loading: false,
-          error: current.balanceError,
+          error: current.error,
           gigs: gigsResponse.gigs
         }));
       },

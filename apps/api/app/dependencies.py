@@ -34,20 +34,30 @@ def _build_ai_client(settings):
     )
 
 
+def _build_state_repository(settings) -> StateRepository:
+    return StateRepository(settings.state_path)
+
+
+def _build_photo_repository(settings) -> PhotoRepository:
+    return PhotoRepository(settings.upload_dir)
+
+
+def _build_payment_client(settings):
+    return FakePaymentClient() if settings.use_fake_bunq else BunqPaymentClient(settings)
+
+
+def _build_payment_service(settings) -> PaymentService:
+    return PaymentService(_build_payment_client(settings))
+
+
 @lru_cache
 def get_gig_service() -> GigService:
     settings = get_settings()
-    state_repository = StateRepository(settings.state_path)
-    photo_repository = PhotoRepository(settings.upload_dir)
-    verification_client = _build_ai_client(settings)
-
-    payment_client = FakePaymentClient() if settings.use_fake_bunq else BunqPaymentClient(settings)
-    payment_service = PaymentService(payment_client)
     return GigService(
-        state_repository=state_repository,
-        photo_repository=photo_repository,
-        verification_client=verification_client,
-        payment_service=payment_service,
+        state_repository=_build_state_repository(settings),
+        photo_repository=_build_photo_repository(settings),
+        verification_client=_build_ai_client(settings),
+        payment_service=_build_payment_service(settings),
         allow_ai_fallback=settings.demo_allow_ai_fallback,
     )
 
@@ -55,15 +65,11 @@ def get_gig_service() -> GigService:
 @lru_cache
 def get_snap_and_learn_service() -> SnapAndLearnService:
     settings = get_settings()
-    state_repository = StateRepository(settings.state_path)
-    photo_repository = PhotoRepository(settings.upload_dir)
-    payment_client = FakePaymentClient() if settings.use_fake_bunq else BunqPaymentClient(settings)
-    payment_service = PaymentService(payment_client)
     return SnapAndLearnService(
-        state_repository=state_repository,
-        photo_repository=photo_repository,
+        state_repository=_build_state_repository(settings),
+        photo_repository=_build_photo_repository(settings),
         analysis_client=_build_ai_client(settings),
-        payment_service=payment_service,
+        payment_service=_build_payment_service(settings),
         allow_ai_fallback=settings.demo_allow_ai_fallback,
     )
 
@@ -71,9 +77,8 @@ def get_snap_and_learn_service() -> SnapAndLearnService:
 @lru_cache
 def get_bloom_report_service() -> BloomReportService:
     settings = get_settings()
-    state_repository = StateRepository(settings.state_path)
     return BloomReportService(
-        state_repository=state_repository,
+        state_repository=_build_state_repository(settings),
         narrative_client=_build_ai_client(settings),
         allow_ai_fallback=settings.demo_allow_ai_fallback,
     )

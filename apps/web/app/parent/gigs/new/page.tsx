@@ -11,12 +11,24 @@ type ChecklistStep = {
   value: string;
 };
 
+const MAX_CHECKLIST_STEPS = 6;
+
 function newChecklistStep(value = ""): ChecklistStep {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return { id: crypto.randomUUID(), value };
   }
 
   return { id: `step_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, value };
+}
+
+function normalizeRewardAmount(value: string): string | null {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed.toFixed(2);
 }
 
 export default function NewGigPage() {
@@ -39,11 +51,22 @@ export default function NewGigPage() {
 
     try {
       const checklist = steps.map((item) => item.value.trim()).filter(Boolean);
+      const normalizedRewardAmount = normalizeRewardAmount(rewardAmount);
+
+      if (!normalizedRewardAmount) {
+        setError("Reward amount must be a valid number greater than zero.");
+        return;
+      }
+
+      if (checklist.length === 0) {
+        setError("Add at least one checklist step so Bloom knows what to verify.");
+        return;
+      }
 
       await apiClient.createGig({
         title,
         description,
-        reward_amount: rewardAmount,
+        reward_amount: normalizedRewardAmount,
         currency: "EUR",
         verification_checklist: checklist
       });
@@ -164,7 +187,7 @@ export default function NewGigPage() {
             ))}
           </div>
 
-          {steps.length < 6 ? (
+          {steps.length < MAX_CHECKLIST_STEPS ? (
             <button
               type="button"
               onClick={() => setSteps((current) => [...current, newChecklistStep()])}
