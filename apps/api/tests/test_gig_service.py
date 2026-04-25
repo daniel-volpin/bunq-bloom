@@ -80,6 +80,7 @@ class SlowRealPaymentClient:
             "amount": kwargs["amount"],
             "currency": kwargs["currency"],
             "bunq_payment_id": f"bunq_payment_{self.calls}",
+            "merchant_reference": kwargs["idempotency_key"],
         }
 
     def get_kid_balance(self, state=None):
@@ -295,6 +296,20 @@ def test_real_payment_uses_balance_after_mutation_without_extra_balance_fetch(tm
     assert result["kid_balance"] == {"amount": "27.51", "currency": "EUR", "source": "bunq"}
     assert result["balance_refresh_status"] == "ok"
     assert payment_client.balance_fetch_calls == 0
+
+
+def test_successful_payment_exposes_merchant_reference(tmp_path):
+    service = make_service_with_clients(tmp_path, RealVerificationClient(), BalanceAfterMutationPaymentClient())
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+    result = service.complete_gig(
+        "gig_001",
+        after_image_base64=image_data_url(b"after"),
+        idempotency_key="attempt-001",
+    )
+
+    assert result["payment"]["merchant_reference"] == "gig_001:attempt-001"
 
 
 def test_concurrent_completion_only_creates_one_real_payment(tmp_path):

@@ -381,4 +381,6 @@ class GigService:
         }
         if payment.get("error_code"):
             public_payment["error_code"] = payment["error_code"]
+        if payment.get("merchant_reference"):
+            public_payment["merchant_reference"] = payment["merchant_reference"]
         return public_payment
