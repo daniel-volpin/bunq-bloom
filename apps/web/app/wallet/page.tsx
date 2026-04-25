@@ -115,20 +115,6 @@ export default function WalletPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Link
-              href="/gigs"
-              className="tap-target flex items-center justify-center rounded-full bg-card px-4 py-3 text-sm font-extrabold text-bloom-green-deep shadow-card"
-            >
-              View gigs
-            </Link>
-            <Link
-              href="/gigs/new"
-              className="tap-target flex items-center justify-center rounded-full bg-bloom-green px-4 py-3 text-sm font-extrabold text-white shadow-card"
-            >
-              Post a gig
-            </Link>
-          </div>
         </div>
       </div>
     </div>
