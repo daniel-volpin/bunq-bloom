@@ -40,16 +40,20 @@ def test_health_reports_lmstudio_integrations_and_ready_local_paths(monkeypatch,
     assert body["readiness_status"] == "ready"
     assert body["integrations"]["ai"] == {
         "mode": "real",
+        "ready": True,
         "status": "configured",
         "missing_config": [],
     }
     assert body["integrations"]["bunq"] == {
         "mode": "fake",
+        "ready": True,
         "status": "configured",
         "missing_config": [],
     }
     assert body["integrations"]["state"]["status"] == "ok"
+    assert body["integrations"]["state"]["ready"] is True
     assert body["integrations"]["uploads"]["status"] == "ok"
+    assert body["integrations"]["uploads"]["ready"] is True
 
 
 def test_health_reports_real_integration_missing_config_codes_without_values(monkeypatch, tmp_path):
@@ -64,10 +68,12 @@ def test_health_reports_real_integration_missing_config_codes_without_values(mon
     assert body["readiness_status"] == "not_ready"
     assert body["integrations"]["ai"] == {
         "mode": "real",
+        "ready": True,
         "status": "configured",
         "missing_config": [],
     }
     assert body["integrations"]["bunq"]["mode"] == "real"
+    assert body["integrations"]["bunq"]["ready"] is False
     assert body["integrations"]["bunq"]["status"] == "not_configured"
     assert body["integrations"]["bunq"]["missing_config"] == [
         "bunq_parent_account_id_missing",
@@ -99,8 +105,10 @@ def test_health_reports_state_and_upload_readiness_failures(monkeypatch, tmp_pat
     body = response.json()
     assert body["readiness_status"] == "not_ready"
     assert body["integrations"]["state"]["status"] == "not_ready"
+    assert body["integrations"]["state"]["ready"] is False
     assert body["integrations"]["state"]["missing_config"] == ["state_path_parent_not_directory"]
     assert body["integrations"]["uploads"]["status"] == "not_ready"
+    assert body["integrations"]["uploads"]["ready"] is False
     assert body["integrations"]["uploads"]["missing_config"] == ["upload_dir_not_directory"]
 
 
@@ -119,12 +127,14 @@ def test_health_treats_missing_but_creatable_local_dirs_as_ready(monkeypatch, tm
     body = response.json()
     assert body["readiness_status"] == "ready"
     assert body["integrations"]["state"]["status"] == "ok"
+    assert body["integrations"]["state"]["ready"] is True
     assert body["integrations"]["state"]["missing_config"] == []
     assert body["integrations"]["uploads"]["status"] == "ok"
+    assert body["integrations"]["uploads"]["ready"] is True
     assert body["integrations"]["uploads"]["creatable"] is True
 
 
-def test_health_reports_lmstudio_missing_model_when_real_ai_is_enabled(monkeypatch, tmp_path):
+def test_health_reports_local_fake_ai_mode_when_lmstudio_model_is_missing(monkeypatch, tmp_path):
     monkeypatch.setenv("BLOOM_AI_PROVIDER", "lmstudio")
     monkeypatch.setenv("BLOOM_LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
     monkeypatch.delenv("BLOOM_LMSTUDIO_MODEL", raising=False)
@@ -138,6 +148,8 @@ def test_health_reports_lmstudio_missing_model_when_real_ai_is_enabled(monkeypat
 
     assert response.status_code == 200
     body = response.json()
-    assert body["integrations"]["ai"]["mode"] == "real"
-    assert body["integrations"]["ai"]["status"] == "not_configured"
-    assert body["integrations"]["ai"]["missing_config"] == ["lmstudio_model_missing"]
+    assert body["readiness_status"] == "ready"
+    assert body["integrations"]["ai"]["mode"] == "fake"
+    assert body["integrations"]["ai"]["ready"] is True
+    assert body["integrations"]["ai"]["status"] == "configured"
+    assert body["integrations"]["ai"]["missing_config"] == []

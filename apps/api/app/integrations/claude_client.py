@@ -17,6 +17,20 @@ class _ClaudeVerificationPayload(BaseModel):
     reasoning_summary: str = Field(min_length=1, max_length=1000)
 
 
+class _ClaudeSnapAndLearnPayload(BaseModel):
+    item_name: str = Field(min_length=1, max_length=200)
+    estimated_price: str = Field(min_length=1, max_length=20)
+    currency: str = Field(min_length=3, max_length=3)
+    confidence: float = Field(ge=0, le=1)
+    reasoning_summary: str = Field(min_length=1, max_length=1000)
+
+
+class _ClaudeWeeklyReportPayload(BaseModel):
+    highlights: list[dict[str, str]]
+    savings_insight: str = Field(min_length=1, max_length=500)
+    conversation_starter: str = Field(min_length=1, max_length=300)
+
+
 class ClaudeVisionClient:
     mode = "real"
 
@@ -64,6 +78,61 @@ class ClaudeVisionClient:
             raw_model=str(getattr(response, "model", self.model)),
         ).model_dump()
 
+    def analyze(self, *, image_base64: str) -> dict:
+        response = self._get_client().messages.create(
+            model=self.model,
+            max_tokens=250,
+            temperature=0,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": self._snap_prompt()},
+                        self._inline_image_block(image_base64),
+                    ],
+                }
+            ],
+        )
+
+        text = self._extract_text(response)
+        payload = self._parse_snap_payload(text)
+        return {
+            "item_name": payload.item_name,
+            "estimated_price": {
+                "amount": payload.estimated_price,
+                "currency": payload.currency,
+            },
+            "confidence": payload.confidence,
+            "reasoning_summary": payload.reasoning_summary,
+            "raw_provider": "anthropic",
+            "raw_model": str(getattr(response, "model", self.model)),
+        }
+
+    def generate_weekly_report(self, *, report_context: dict) -> dict:
+        response = self._get_client().messages.create(
+            model=self.model,
+            max_tokens=350,
+            temperature=0,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": self._weekly_report_prompt(report_context)},
+                    ],
+                }
+            ],
+        )
+
+        text = self._extract_text(response)
+        payload = self._parse_weekly_report_payload(text)
+        return {
+            "highlights": payload.highlights,
+            "savings_insight": payload.savings_insight,
+            "conversation_starter": payload.conversation_starter,
+            "raw_provider": "anthropic",
+            "raw_model": str(getattr(response, "model", self.model)),
+        }
+
     def _get_client(self) -> Any:
         if self._client is not None:
             return self._client
@@ -92,6 +161,17 @@ class ClaudeVisionClient:
             "source": {
                 "type": "base64",
                 "media_type": str(content_type),
+                "data": encoded,
+            },
+        }
+
+    def _inline_image_block(self, image_base64: str) -> dict[str, Any]:
+        content_type, encoded = self._split_data_url(image_base64)
+        return {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": content_type,
                 "data": encoded,
             },
         }
@@ -148,6 +228,30 @@ class ClaudeVisionClient:
         except ValidationError as exc:
             raise RuntimeError("Claude response is missing required verification fields.") from exc
 
+    def _parse_snap_payload(self, content: str) -> _ClaudeSnapAndLearnPayload:
+        json_text = self._extract_json_text(content)
+        try:
+            payload = json.loads(json_text)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Claude returned invalid JSON.") from exc
+
+        try:
+            return _ClaudeSnapAndLearnPayload.model_validate(payload)
+        except ValidationError as exc:
+            raise RuntimeError("Claude response is missing required Snap & Learn fields.") from exc
+
+    def _parse_weekly_report_payload(self, content: str) -> _ClaudeWeeklyReportPayload:
+        json_text = self._extract_json_text(content)
+        try:
+            payload = json.loads(json_text)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Claude returned invalid JSON.") from exc
+
+        try:
+            return _ClaudeWeeklyReportPayload.model_validate(payload)
+        except ValidationError as exc:
+            raise RuntimeError("Claude response is missing required weekly report fields.") from exc
+
     def _extract_json_text(self, content: str) -> str:
         stripped = content.strip()
         if stripped.startswith("```"):
@@ -158,3 +262,44 @@ class ClaudeVisionClient:
                     body = body[1:]
                 stripped = "\n".join(body).strip()
         return stripped
+
+    def _split_data_url(self, image_base64: str) -> tuple[str, str]:
+        if not image_base64.startswith("data:") or ";base64," not in image_base64:
+            raise RuntimeError("Image must be a base64 data URL.")
+        header, encoded = image_base64.split(";base64,", 1)
+        return header.removeprefix("data:"), encoded
+
+    def _snap_prompt(self) -> str:
+        return (
+            "You are analyzing a product photo for a kid-friendly savings app.\n"
+            "Identify the item and estimate a plausible EUR price.\n"
+            "Return JSON only with this exact schema:\n"
+            "{\n"
+            '  "item_name": "short product name",\n'
+            '  "estimated_price": "12.99",\n'
+            '  "currency": "EUR",\n'
+            '  "confidence": number between 0 and 1,\n'
+            '  "reasoning_summary": "short explanation"\n'
+            "}\n"
+            "Rules:\n"
+            "- Keep item_name short and specific.\n"
+            "- estimated_price must be a string decimal in EUR.\n"
+            "- Do not add markdown or extra keys.\n"
+        )
+
+    def _weekly_report_prompt(self, report_context: dict) -> str:
+        return (
+            "You are writing a short, kid-friendly weekly family money recap.\n"
+            "Use only the provided structured stats.\n"
+            "Return JSON only with this exact schema:\n"
+            "{\n"
+            '  "highlights": [{"title": "short title", "detail": "short detail"}],\n'
+            '  "savings_insight": "one short sentence",\n'
+            '  "conversation_starter": "one short question"\n'
+            "}\n"
+            "Rules:\n"
+            "- Keep highlights short and specific.\n"
+            "- Do not invent facts beyond the provided report context.\n"
+            "- Do not add markdown or extra keys.\n\n"
+            f"Report context: {json.dumps(report_context)}"
+        )

@@ -31,9 +31,19 @@ class Settings(BaseSettings):
     bunq_kid_account_id: str | None = Field(default=None, alias="BUNQ_KID_ACCOUNT_ID")
 
     def ai_mode(self) -> str:
+        if self.use_fake_bunq and self._provider_config_missing():
+            return "fake"
         return "real"
 
     def ai_missing_config_codes(self) -> list[str]:
+        if self.use_fake_bunq:
+            if self.ai_provider == "anthropic":
+                return [] if self.anthropic_api_key else []
+
+            if self.lmstudio_base_url and self.lmstudio_model:
+                return []
+            return []
+
         if self.ai_provider == "anthropic":
             return [] if self.anthropic_api_key else ["anthropic_api_key_missing"]
 
@@ -67,6 +77,11 @@ class Settings(BaseSettings):
         if not path.is_absolute():
             path = Path.cwd() / path
         return path.resolve() / "bunq_client.py"
+
+    def _provider_config_missing(self) -> bool:
+        if self.ai_provider == "anthropic":
+            return not bool(self.anthropic_api_key)
+        return not (self.lmstudio_base_url and self.lmstudio_model)
 
 
 @lru_cache

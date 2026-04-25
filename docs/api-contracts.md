@@ -218,6 +218,53 @@ Mode values:
 - `ai_fallback`: Claude failed and explicit demo fallback was used
 - `bunq_fallback`: bunq failed and explicit demo fallback was used
 
+### `POST /api/gigs/{gig_id}/retry-payment`
+
+Retries payment for a gig that is already AI-approved but currently in `payment_failed`.
+
+Request:
+
+```json
+{
+  "idempotency_key": "retry_payment_2026_04_25_001"
+}
+```
+
+Response on payment retry success:
+
+```json
+{
+  "gig": {
+    "id": "gig_001",
+    "status": "paid"
+  },
+  "verification": {
+    "approved": true,
+    "confidence": 0.91,
+    "tags": ["bed made", "floor clear", "desk tidy"],
+    "message_for_kid": "Nice work. Your room looks much tidier."
+  },
+  "payment": {
+    "status": "succeeded",
+    "amount": "5.00",
+    "currency": "EUR",
+    "bunq_payment_id": "12346"
+  },
+  "kid_balance": {
+    "amount": "27.50",
+    "currency": "EUR",
+    "source": "bunq"
+  },
+  "mode": "real",
+  "fallback_mode": false
+}
+```
+
+Error cases:
+
+- `invalid_gig_state` when the gig is not currently `payment_failed`
+- `payment_failed` when the retry attempt also fails
+
 ## Money APIs
 
 ### `GET /api/balance/kid`
@@ -235,6 +282,87 @@ Response:
   },
   "fallback_mode": false
 }
+
+## Snap & Learn APIs
+
+### `POST /api/snap-and-learn/analyze`
+
+Analyzes a photographed item, estimates its price, compares it with the kid balance, and translates the gap into gigs needed.
+
+Request:
+
+```json
+{
+  "image_base64": "data:image/jpeg;base64,..."
+}
+```
+
+Response:
+
+```json
+{
+  "analysis": {
+    "item_name": "Nintendo Switch Game",
+    "estimated_price": {
+      "amount": "24.99",
+      "currency": "EUR"
+    },
+    "gigs_needed": 1,
+    "suggested_goal": "Save for Nintendo Switch Game by completing 1 more gig.",
+    "confidence": 0.91
+  },
+  "kid_balance": {
+    "amount": "22.50",
+    "currency": "EUR",
+    "source": "fake"
+  },
+  "mode": "fake_local",
+  "fallback_mode": false
+}
+```
+
+## Bloom Report APIs
+
+### `GET /api/bloom-report/weekly`
+
+Returns the current week's family recap with stats, highlights, a savings insight, and a conversation starter.
+
+Response:
+
+```json
+{
+  "period": {
+    "start_date": "2026-04-19",
+    "end_date": "2026-04-25"
+  },
+  "stats": {
+    "gigs_completed": 2,
+    "money_earned": {
+      "amount": "12.50",
+      "currency": "EUR"
+    },
+    "average_reward": {
+      "amount": "6.25",
+      "currency": "EUR"
+    },
+    "current_balance": {
+      "amount": "35.00",
+      "currency": "EUR",
+      "source": "fake"
+    }
+  },
+  "highlights": [
+    {
+      "title": "Family win",
+      "detail": "Two gigs turned effort into EUR 12.50 this week."
+    }
+  ],
+  "savings_insight": "EUR 12.50 earned means EUR 6.25 could go straight into savings this week.",
+  "conversation_starter": "Which reward felt most worth the effort this week?",
+  "mode": "fake_local",
+  "fallback_mode": false
+}
+```
 ```
 
 ## Health APIs
@@ -248,10 +376,43 @@ Response:
 ```json
 {
   "status": "ok",
+  "readiness_status": "ready",
   "integrations": {
-    "ai": "configured",
-    "bunq": "configured",
-    "state": "ok"
+    "ai": {
+      "mode": "real",
+      "ready": true,
+      "status": "configured",
+      "missing_config": []
+    },
+    "bunq": {
+      "mode": "fake",
+      "ready": true,
+      "status": "configured",
+      "missing_config": []
+    },
+    "state": {
+      "ready": true,
+      "status": "ok",
+      "path_parent": {
+        "ready": true,
+        "status": "ok",
+        "exists": true,
+        "readable": true,
+        "writable": true,
+        "creatable": true,
+        "missing_config": []
+      },
+      "missing_config": []
+    },
+    "uploads": {
+      "ready": true,
+      "status": "ok",
+      "exists": true,
+      "readable": true,
+      "writable": true,
+      "creatable": true,
+      "missing_config": []
+    }
   }
 }
 ```

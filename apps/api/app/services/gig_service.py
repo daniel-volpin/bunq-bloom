@@ -8,6 +8,9 @@ from app.repositories.state_repository import StateRepository
 from app.services.payment_service import PaymentService
 
 
+_AI_NOT_CONFIGURED_ERROR_CODES = {"analysis_not_configured", "report_generation_not_configured", "verification_not_configured"}
+
+
 class GigService:
     def __init__(
         self,
@@ -128,42 +131,43 @@ class GigService:
             self.state_repository.save(state)
             return response
 
-        gig["status"] = "approved"
-        try:
-            payment, kid_balance = self.payment_service.pay_for_gig(
-                state=state,
-                gig=gig,
-                idempotency_key=attempt_id,
-            )
-        except AppError as exc:
-            payment = self.payment_service.record_failed_payment(
-                state=state,
-                gig=gig,
-                error_code=exc.code,
-            )
-            gig["payment_id"] = payment["id"]
-            gig["status"] = "payment_failed"
-            gig["updated_at"] = now_iso()
-            response = self._completion_response(
-                gig,
-                verification,
-                payment,
-                None,
-            )
-            self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
-            self.state_repository.save(state)
-            return response
-
-        gig["payment_id"] = payment["id"]
-        gig["status"] = "paid"
-        gig["updated_at"] = now_iso()
-        response = self._completion_response(
-            gig,
-            verification,
-            payment,
-            kid_balance,
+        response = self._complete_approved_gig_payment(
+            state=state,
+            gig=gig,
+            verification=verification,
+            attempt_id=attempt_id,
+            after_photo_id=after_photo_id,
         )
-        self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
+        self.state_repository.save(state)
+        return response
+
+    def retry_payment(self, gig_id: str, *, idempotency_key: str) -> dict:
+        attempt_id = f"{gig_id}:retry-payment:{idempotency_key}"
+        state = self.state_repository.load()
+        if attempt_id in state["completion_attempts"]:
+            return state["completion_attempts"][attempt_id]["response"]
+
+        gig = self._get_gig(state, gig_id)
+        if gig["status"] == "paid":
+            return self._paid_response(state, gig)
+        if gig["status"] != "payment_failed":
+            raise AppError("invalid_gig_state", "Only payment_failed gigs can retry payment.")
+
+        verification_id = gig.get("verification_result_id")
+        if not verification_id:
+            raise AppError("invalid_gig_state", "Payment retry requires an approved verification result.")
+
+        verification = state["verification_results"][verification_id]
+        if not verification.get("approved"):
+            raise AppError("invalid_gig_state", "Payment retry requires an approved verification result.")
+
+        response = self._complete_approved_gig_payment(
+            state=state,
+            gig=gig,
+            verification=verification,
+            attempt_id=attempt_id,
+            after_photo_id=None,
+        )
         self.state_repository.save(state)
         return response
 
@@ -202,6 +206,42 @@ class GigService:
             "created_at": now_iso(),
         }
 
+    def _complete_approved_gig_payment(
+        self,
+        *,
+        state: dict,
+        gig: dict,
+        verification: dict,
+        attempt_id: str,
+        after_photo_id: str | None,
+    ) -> dict:
+        gig["status"] = "approved"
+        try:
+            payment, kid_balance = self.payment_service.pay_for_gig(
+                state=state,
+                gig=gig,
+                idempotency_key=attempt_id,
+            )
+        except AppError as exc:
+            payment = self.payment_service.record_failed_payment(
+                state=state,
+                gig=gig,
+                error_code=exc.code,
+            )
+            gig["payment_id"] = payment["id"]
+            gig["status"] = "payment_failed"
+            gig["updated_at"] = now_iso()
+            response = self._completion_response(gig, verification, payment, None)
+            self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
+            return response
+
+        gig["payment_id"] = payment["id"]
+        gig["status"] = "paid"
+        gig["updated_at"] = now_iso()
+        response = self._completion_response(gig, verification, payment, kid_balance)
+        self._store_attempt(state, attempt_id, response, verification["id"], payment["id"], after_photo_id)
+        return response
+
     def _verify_or_fallback(self, *, gig: dict, before_photo: dict, after_photo: dict) -> dict:
         try:
             raw_verification = self.verification_client.verify(
@@ -210,8 +250,9 @@ class GigService:
                 after_photo=after_photo,
             )
             return VerificationResultModel.model_validate(raw_verification).model_dump()
-        except AppError:
-            raise
+        except AppError as exc:
+            if not self.allow_ai_fallback or exc.code not in _AI_NOT_CONFIGURED_ERROR_CODES:
+                raise
         except Exception as exc:
             if not self.allow_ai_fallback:
                 raise AppError(
@@ -231,6 +272,18 @@ class GigService:
                 raw_provider="fallback",
                 raw_model="ai-fallback-v1",
             ).model_dump()
+
+        return VerificationResultModel(
+            id=new_id("verif"),
+            gig_id=gig["id"],
+            approved=True,
+            confidence=0,
+            tags=["demo fallback"],
+            message_for_kid="Demo fallback approved this task because AI verification is unavailable.",
+            reasoning_summary="AI verification failed and explicit demo fallback was enabled.",
+            raw_provider="fallback",
+            raw_model="ai-fallback-v1",
+        ).model_dump()
 
     def _completion_response(
         self,

@@ -18,10 +18,7 @@ class PhotoRepository:
         self.upload_dir = upload_dir
 
     def save_data_url(self, image_base64: str, *, gig_id: str, kind: str) -> dict[str, str]:
-        content_type, payload = self._parse_data_url(image_base64)
-        raw = self._decode(payload)
-        if len(raw) > MAX_IMAGE_BYTES:
-            raise AppError("image_too_large", "Image must be 8 MB or smaller.", status_code=413)
+        content_type, raw = self.validate_data_url(image_base64)
 
         photo_id = new_id("photo")
         extension = SUPPORTED_TYPES[content_type]
@@ -35,6 +32,13 @@ class PhotoRepository:
             "content_type": content_type,
             "storage_ref": str(storage_ref),
         }
+
+    def validate_data_url(self, image_base64: str) -> tuple[str, bytes]:
+        content_type, payload = self._parse_data_url(image_base64)
+        raw = self._decode(payload)
+        if len(raw) > MAX_IMAGE_BYTES:
+            raise AppError("image_too_large", "Image must be 8 MB or smaller.", status_code=413)
+        return content_type, raw
 
     def _parse_data_url(self, value: str) -> tuple[str, str]:
         if not value.startswith("data:") or ";base64," not in value:

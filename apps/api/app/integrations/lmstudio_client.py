@@ -18,6 +18,20 @@ class _LMStudioVerificationPayload(BaseModel):
     reasoning_summary: str = Field(min_length=1, max_length=1000)
 
 
+class _LMStudioSnapAndLearnPayload(BaseModel):
+    item_name: str = Field(min_length=1, max_length=200)
+    estimated_price: str = Field(min_length=1, max_length=20)
+    currency: str = Field(min_length=3, max_length=3)
+    confidence: float = Field(ge=0, le=1)
+    reasoning_summary: str = Field(min_length=1, max_length=1000)
+
+
+class _LMStudioWeeklyReportPayload(BaseModel):
+    highlights: list[dict[str, str]]
+    savings_insight: str = Field(min_length=1, max_length=500)
+    conversation_starter: str = Field(min_length=1, max_length=300)
+
+
 class LMStudioVisionClient:
     mode = "real"
 
@@ -54,21 +68,7 @@ class LMStudioVisionClient:
             ],
         }
 
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-
-        try:
-            response = self.http_client.post(
-                f"{self.base_url}/chat/completions",
-                json=payload,
-                headers=headers,
-                timeout=self.timeout_seconds,
-            )
-            response.raise_for_status()
-            body = response.json()
-        except Exception as exc:
-            raise RuntimeError("LM Studio request failed.") from exc
+        body = self._post_json(payload)
 
         content = self._extract_message_content(body)
         parsed = self._parse_payload(content)
@@ -85,6 +85,83 @@ class LMStudioVisionClient:
             raw_provider="lmstudio",
             raw_model=str(body.get("model") or self.model),
         ).model_dump()
+
+    def analyze(self, *, image_base64: str) -> dict:
+        payload = {
+            "model": self.model,
+            "temperature": 0,
+            "max_tokens": 250,
+            "response_format": self._snap_response_format(),
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": self._snap_prompt()},
+                        self._inline_image_block(image_base64),
+                    ],
+                }
+            ],
+        }
+
+        body = self._post_json(payload)
+
+        content = self._extract_message_content(body)
+        parsed = self._parse_snap_payload(content)
+        return {
+            "item_name": parsed.item_name,
+            "estimated_price": {
+                "amount": parsed.estimated_price,
+                "currency": parsed.currency,
+            },
+            "confidence": parsed.confidence,
+            "reasoning_summary": parsed.reasoning_summary,
+            "raw_provider": "lmstudio",
+            "raw_model": str(body.get("model") or self.model),
+        }
+
+    def generate_weekly_report(self, *, report_context: dict) -> dict:
+        payload = {
+            "model": self.model,
+            "temperature": 0,
+            "max_tokens": 350,
+            "response_format": self._weekly_report_response_format(),
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": self._weekly_report_prompt(report_context)},
+                    ],
+                }
+            ],
+        }
+
+        body = self._post_json(payload)
+        content = self._extract_message_content(body)
+        parsed = self._parse_weekly_report_payload(content)
+        return {
+            "highlights": parsed.highlights,
+            "savings_insight": parsed.savings_insight,
+            "conversation_starter": parsed.conversation_starter,
+            "raw_provider": "lmstudio",
+            "raw_model": str(body.get("model") or self.model),
+        }
+
+    def _post_json(self, payload: dict[str, Any]) -> dict[str, Any]:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        try:
+            response = self.http_client.post(
+                f"{self.base_url}/chat/completions",
+                json=payload,
+                headers=headers,
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as exc:
+            raise RuntimeError("LM Studio request failed.") from exc
 
     def _extract_message_content(self, body: dict[str, Any]) -> str:
         try:
@@ -134,6 +211,30 @@ class LMStudioVisionClient:
         except ValidationError as exc:
             raise RuntimeError("LM Studio response is missing required verification fields.") from exc
 
+    def _parse_snap_payload(self, content: str) -> _LMStudioSnapAndLearnPayload:
+        json_text = self._extract_json_text(content)
+        try:
+            payload = json.loads(json_text)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("LM Studio returned invalid JSON.") from exc
+
+        try:
+            return _LMStudioSnapAndLearnPayload.model_validate(payload)
+        except ValidationError as exc:
+            raise RuntimeError("LM Studio response is missing required Snap & Learn fields.") from exc
+
+    def _parse_weekly_report_payload(self, content: str) -> _LMStudioWeeklyReportPayload:
+        json_text = self._extract_json_text(content)
+        try:
+            payload = json.loads(json_text)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("LM Studio returned invalid JSON.") from exc
+
+        try:
+            return _LMStudioWeeklyReportPayload.model_validate(payload)
+        except ValidationError as exc:
+            raise RuntimeError("LM Studio response is missing required weekly report fields.") from exc
+
     def _extract_json_text(self, content: str) -> str:
         stripped = content.strip()
         if stripped.startswith("```"):
@@ -160,6 +261,14 @@ class LMStudioVisionClient:
             "type": "image_url",
             "image_url": {
                 "url": f"data:{content_type};base64,{encoded}",
+            },
+        }
+
+    def _inline_image_block(self, image_base64: str) -> dict[str, Any]:
+        return {
+            "type": "image_url",
+            "image_url": {
+                "url": image_base64,
             },
         }
 
@@ -192,6 +301,61 @@ class LMStudioVisionClient:
             },
         }
 
+    def _snap_response_format(self) -> dict[str, Any]:
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "snap_and_learn_result",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "item_name": {"type": "string"},
+                        "estimated_price": {"type": "string"},
+                        "currency": {"type": "string"},
+                        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                        "reasoning_summary": {"type": "string"},
+                    },
+                    "required": [
+                        "item_name",
+                        "estimated_price",
+                        "currency",
+                        "confidence",
+                        "reasoning_summary",
+                    ],
+                    "additionalProperties": False,
+                },
+            },
+        }
+
+    def _weekly_report_response_format(self) -> dict[str, Any]:
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "weekly_bloom_report",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "highlights": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "title": {"type": "string"},
+                                    "detail": {"type": "string"},
+                                },
+                                "required": ["title", "detail"],
+                                "additionalProperties": False,
+                            },
+                        },
+                        "savings_insight": {"type": "string"},
+                        "conversation_starter": {"type": "string"},
+                    },
+                    "required": ["highlights", "savings_insight", "conversation_starter"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+
     def _prompt(self, gig: dict) -> str:
         title = str(gig.get("title") or "").strip()
         description = str(gig.get("description") or "").strip()
@@ -218,4 +382,39 @@ class LMStudioVisionClient:
             f"Gig title: {title}\n"
             f"Gig description: {description}\n"
             f"Checklist:\n{checklist_text}\n"
+        )
+
+    def _snap_prompt(self) -> str:
+        return (
+            "You are analyzing a product photo for a kid-friendly savings app.\n"
+            "Identify the item and estimate a plausible EUR price.\n"
+            "Return JSON only with this exact schema:\n"
+            "{\n"
+            '  "item_name": "short product name",\n'
+            '  "estimated_price": "12.99",\n'
+            '  "currency": "EUR",\n'
+            '  "confidence": number between 0 and 1,\n'
+            '  "reasoning_summary": "short explanation"\n'
+            "}\n"
+            "Rules:\n"
+            "- Keep item_name short and specific.\n"
+            "- estimated_price must be a string decimal in EUR.\n"
+            "- Do not add markdown or extra keys.\n"
+        )
+
+    def _weekly_report_prompt(self, report_context: dict) -> str:
+        return (
+            "You are writing a short, kid-friendly weekly family money recap.\n"
+            "Use only the provided structured stats.\n"
+            "Return JSON only with this exact schema:\n"
+            "{\n"
+            '  "highlights": [{"title": "short title", "detail": "short detail"}],\n'
+            '  "savings_insight": "one short sentence",\n'
+            '  "conversation_starter": "one short question"\n'
+            "}\n"
+            "Rules:\n"
+            "- Keep highlights short and specific.\n"
+            "- Do not invent facts beyond the provided report context.\n"
+            "- Do not add markdown or extra keys.\n\n"
+            f"Report context: {json.dumps(report_context)}"
         )

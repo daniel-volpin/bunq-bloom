@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.dependencies import get_gig_service
-from app.models.api import BeforePhotoRequest, CompleteGigRequest, GigCreateRequest
+from app.models.api import BeforePhotoRequest, CompleteGigRequest, GigCreateRequest, RetryPaymentRequest
 from app.services.gig_service import GigService
 
 router = APIRouter(prefix="/api/gigs", tags=["gigs"])
@@ -42,4 +42,13 @@ def complete_gig(
         after_image_base64=payload.after_image_base64,
         idempotency_key=payload.idempotency_key,
     )
+
+
+@router.post("/{gig_id}/retry-payment")
+def retry_payment(
+    gig_id: str,
+    payload: RetryPaymentRequest,
+    service: GigService = Depends(get_gig_service),
+) -> dict:
+    return service.retry_payment(gig_id, idempotency_key=payload.idempotency_key)
 

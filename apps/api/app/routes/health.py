@@ -3,13 +3,14 @@ from uuid import uuid4
 
 from fastapi import APIRouter
 
+from app.models.api import HealthResponse
 from app.settings import get_settings
 
 router = APIRouter(tags=["health"])
 
 
-@router.get("/api/health")
-def health() -> dict:
+@router.get("/api/health", response_model=HealthResponse)
+def health() -> HealthResponse:
     settings = get_settings()
     ai = _integration_status(settings.ai_mode(), settings.ai_missing_config_codes())
     bunq = _integration_status(settings.bunq_mode(), settings.bunq_missing_config_codes())
@@ -32,6 +33,7 @@ def health() -> dict:
 def _integration_status(mode: str, missing_config: list[str]) -> dict:
     return {
         "mode": mode,
+        "ready": not missing_config,
         "status": "configured" if not missing_config else "not_configured",
         "missing_config": missing_config,
     }
@@ -47,6 +49,7 @@ def _state_status(state_path: Path) -> dict:
         missing_config.append("state_path_not_file")
 
     return {
+        "ready": status == "ok",
         "status": status,
         "path_parent": parent_status,
         "missing_config": missing_config,
@@ -57,6 +60,7 @@ def _directory_status(path: Path, code_prefix: str) -> dict:
     if not path.exists():
         creatable = _missing_path_is_creatable(path)
         return {
+            "ready": creatable,
             "status": "ok" if creatable else "not_ready",
             "exists": False,
             "readable": False,
@@ -67,6 +71,7 @@ def _directory_status(path: Path, code_prefix: str) -> dict:
 
     if not path.is_dir():
         return {
+            "ready": False,
             "status": "not_ready",
             "exists": True,
             "readable": False,
@@ -84,6 +89,7 @@ def _directory_status(path: Path, code_prefix: str) -> dict:
         missing_config.append(f"{code_prefix}_not_writable")
 
     return {
+        "ready": readable and writable,
         "status": "ok" if readable and writable else "not_ready",
         "exists": True,
         "readable": readable,

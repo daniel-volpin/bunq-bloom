@@ -235,3 +235,105 @@ def test_unconfigured_ai_is_reported_without_masking_as_retryable_failure(tmp_pa
     assert exc_info.value.code == "verification_not_configured"
     assert exc_info.value.status_code == 500
     assert exc_info.value.retryable is False
+
+
+def test_unconfigured_ai_can_fallback_when_explicitly_enabled(tmp_path):
+    service = make_service_with_ai_fallback(tmp_path, UnconfiguredVerificationClient())
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+
+    result = service.complete_gig(
+        "gig_001",
+        after_image_base64=image_data_url(b"after"),
+        idempotency_key="attempt-001",
+    )
+
+    assert result["gig"]["status"] == "paid"
+    assert result["verification"]["approved"] is True
+    assert result["mode"] == "ai_fallback"
+    assert result["fallback_mode"] is True
+
+
+def test_retry_payment_requires_payment_failed_status(tmp_path):
+    verification_client = CountingVerificationClient()
+    payment_client = FakePaymentClient()
+    service = make_service_with_clients(tmp_path, verification_client, payment_client)
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+
+    with pytest.raises(AppError) as exc_info:
+        service.retry_payment("gig_001", idempotency_key="retry-001")
+
+    assert exc_info.value.code == "invalid_gig_state"
+    assert payment_client.mode == "fake_local"
+    assert verification_client.calls == 0
+
+
+def test_retry_payment_reuses_approved_verification_without_new_after_photo(tmp_path):
+    verification_client = CountingVerificationClient()
+    payment_client = FailThenSucceedPaymentClient()
+    service = make_service_with_clients(tmp_path, verification_client, payment_client)
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+    failed = service.complete_gig(
+        "gig_001",
+        after_image_base64=image_data_url(b"after-one"),
+        idempotency_key="attempt-001",
+    )
+
+    retried = service.retry_payment("gig_001", idempotency_key="retry-001")
+
+    assert failed["gig"]["status"] == "payment_failed"
+    assert retried["gig"]["status"] == "paid"
+    assert retried["payment"]["status"] == "succeeded"
+    assert retried["payment"]["bunq_payment_id"] is not None
+    assert retried["kid_balance"]["amount"] == "27.50"
+    assert verification_client.calls == 1
+    assert payment_client.calls == 2
+
+
+def test_before_photo_rejects_unsupported_image_type(tmp_path):
+    service = make_service(tmp_path)
+
+    service.claim_gig("gig_001")
+
+    with pytest.raises(AppError) as exc_info:
+        service.add_before_photo(
+            "gig_001",
+            "data:image/gif;base64,R0lGODlhAQABAIAAAAUEBA==",
+        )
+
+    assert exc_info.value.code == "invalid_image_type"
+    assert exc_info.value.status_code == 400
+
+
+def test_before_photo_rejects_oversized_payload(tmp_path):
+    service = make_service(tmp_path)
+
+    service.claim_gig("gig_001")
+
+    with pytest.raises(AppError) as exc_info:
+        service.add_before_photo("gig_001", image_data_url(b"a" * (8 * 1024 * 1024 + 1)))
+
+    assert exc_info.value.code == "image_too_large"
+    assert exc_info.value.status_code == 413
+
+
+def test_complete_gig_rejects_oversized_after_photo(tmp_path):
+    service = make_service(tmp_path)
+
+    service.claim_gig("gig_001")
+    service.add_before_photo("gig_001", image_data_url(b"before"))
+
+    with pytest.raises(AppError) as exc_info:
+        service.complete_gig(
+            "gig_001",
+            after_image_base64=image_data_url(b"a" * (8 * 1024 * 1024 + 1)),
+            idempotency_key="attempt-001",
+        )
+
+    assert exc_info.value.code == "image_too_large"
+    assert exc_info.value.status_code == 413
