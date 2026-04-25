@@ -12,6 +12,7 @@ export type GigStatus =
 
 export type CompletionMode =
   | "fake_local"
+  | "fake_ai"
   | "real"
   | "ai_fallback"
   | "bunq_fallback";
@@ -143,6 +144,8 @@ export type SnapAndLearnResponse = {
   analysis: SnapAndLearnAnalysis;
   kid_balance: KidBalance;
   mode: ApiMode;
+  ai_mode: "real" | "fake" | "fallback";
+  payment_mode: "real" | "fake_local" | "bunq_fallback";
   fallback_mode: boolean;
 };
 

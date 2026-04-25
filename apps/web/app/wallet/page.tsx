@@ -53,6 +53,21 @@ export default function WalletPage() {
             earnedThisWeekLoading={reportLoading && !report}
           />
 
+          <div className="rounded-3xl bg-card p-4 shadow-card">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Snap & Learn
+            </p>
+            <p className="mt-2 text-sm font-semibold text-foreground/80">
+              Spot something you want, and Bloom will turn it into a simple savings target.
+            </p>
+            <Link
+              href="/snap-and-learn"
+              className="tap-target mt-4 flex items-center justify-center rounded-full bg-bloom-blue px-4 py-3 text-sm font-extrabold text-white shadow-card"
+            >
+              Snap an item
+            </Link>
+          </div>
+
           {report ? <WeeklyStats report={report} /> : null}
 
           {report ? (

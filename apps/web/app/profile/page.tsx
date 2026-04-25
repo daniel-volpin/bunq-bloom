@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Bell,
+  Camera,
   CheckCircle2,
   ChevronRight,
   Coins,
@@ -99,6 +101,8 @@ function calculateStreakDays(updatedAtValues: Array<string | undefined>) {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { report, paidGigs, fallbackMode } = useBloomSummary();
   const [goalOpen, setGoalOpen] = useState(false);
   const [goalState, setGoalState] = useState({
@@ -111,6 +115,31 @@ export default function ProfilePage() {
   const streakDays = calculateStreakDays(paidGigs.map((gig) => gig.updated_at));
   const weeklyEarnings = report?.stats.money_earned.amount ?? "0.00";
   const goalSummary = goalState.label || report?.highlights[0]?.title || "Not set";
+  const snapGoalLabel = searchParams.get("label")?.trim() ?? "";
+  const snapGoalAmount = searchParams.get("amount")?.trim() ?? "";
+  const hasSnapGoalPrefill =
+    searchParams.get("openGoal") === "1" && snapGoalLabel.length > 0 && snapGoalAmount.length > 0;
+  const dialogOpen = goalOpen || hasSnapGoalPrefill;
+  const goalInitialLabel = hasSnapGoalPrefill
+    ? snapGoalLabel
+    : goalState.label || report?.highlights[0]?.title || "";
+  const goalInitialAmount = hasSnapGoalPrefill ? snapGoalAmount : goalState.amount;
+
+  function handleGoalOpenChange(open: boolean) {
+    setGoalOpen(open);
+
+    if (!open && hasSnapGoalPrefill) {
+      router.replace("/profile", { scroll: false });
+    }
+  }
+
+  function handleGoalSave(goal: { label: string; amount: string }) {
+    setGoalState(goal);
+
+    if (hasSnapGoalPrefill) {
+      router.replace("/profile", { scroll: false });
+    }
+  }
 
   return (
     <div className="pb-8">
@@ -175,6 +204,13 @@ export default function ProfilePage() {
               trailing="Mom"
             />
             <ProfileRow
+              icon={<Camera className="h-4 w-4" strokeWidth={2.2} />}
+              label="Snap & Learn"
+              trailing="Photo goal"
+              showChevron
+              onClick={() => router.push("/snap-and-learn")}
+            />
+            <ProfileRow
               icon={<Bell className="h-4 w-4" strokeWidth={2.2} />}
               label="Notifications"
               trailing={
@@ -219,11 +255,11 @@ export default function ProfilePage() {
 
       <SavingsGoalDialog
         key={`${goalOpen}-${goalState.label || report?.highlights[0]?.title || ""}-${goalState.amount}`}
-        open={goalOpen}
-        onOpenChange={setGoalOpen}
-        initialLabel={goalState.label || report?.highlights[0]?.title || ""}
-        initialAmount={goalState.amount}
-        onSave={setGoalState}
+        open={dialogOpen}
+        onOpenChange={handleGoalOpenChange}
+        initialLabel={goalInitialLabel}
+        initialAmount={goalInitialAmount}
+        onSave={handleGoalSave}
       />
     </div>
   );
