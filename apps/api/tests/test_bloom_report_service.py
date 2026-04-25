@@ -265,7 +265,7 @@ def test_bloom_report_raises_retryable_error_without_fallback(tmp_path):
         raise AssertionError("Expected AppError for failed weekly report generation without fallback")
 
 
-def test_dependency_selects_fake_client_for_bloom_report_when_ai_is_unconfigured(monkeypatch, tmp_path):
+def test_dependency_selects_unconfigured_client_for_bloom_report_when_ai_is_unconfigured(monkeypatch, tmp_path):
     state_dir = tmp_path / "state"
     state_dir.mkdir()
     upload_dir = tmp_path / "uploads"
@@ -283,7 +283,7 @@ def test_dependency_selects_fake_client_for_bloom_report_when_ai_is_unconfigured
 
     service = get_bloom_report_service()
 
-    assert isinstance(service.narrative_client, FakeVerificationClient)
+    assert isinstance(service.narrative_client, UnconfiguredVerificationClient)
 
     get_settings.cache_clear()
     get_bloom_report_service.cache_clear()

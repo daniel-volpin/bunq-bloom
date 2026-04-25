@@ -3,7 +3,6 @@ from functools import lru_cache
 from app.integrations.bunq_payment_client import BunqPaymentClient
 from app.integrations.claude_client import ClaudeVisionClient
 from app.integrations.fake_payment_client import FakePaymentClient
-from app.integrations.fake_verification_client import FakeVerificationClient
 from app.integrations.lmstudio_client import LMStudioVisionClient
 from app.integrations.unconfigured_verification_client import UnconfiguredVerificationClient
 from app.repositories.photo_repository import PhotoRepository
@@ -23,12 +22,12 @@ def _build_ai_client(settings):
                 model=settings.lmstudio_model,
                 api_key=settings.lmstudio_api_key,
             )
-        return FakeVerificationClient() if settings.use_fake_bunq else UnconfiguredVerificationClient(provider="lmstudio")
+        return UnconfiguredVerificationClient(provider="lmstudio")
 
     return (
         ClaudeVisionClient(api_key=settings.anthropic_api_key)
         if settings.anthropic_api_key
-        else FakeVerificationClient() if settings.use_fake_bunq else UnconfiguredVerificationClient(provider="anthropic")
+        else UnconfiguredVerificationClient(provider="anthropic")
     )
 
 

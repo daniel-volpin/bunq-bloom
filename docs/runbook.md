@@ -1,6 +1,6 @@
 # Runbook
 
-This runbook covers the current local LM Studio AI plus fake bunq payment setup.
+This runbook covers the current backend posture: real AI is expected when AI-backed flows are exercised, while bunq can still run in fake mode during integration hardening.
 
 ## Local LM Studio Mode
 
@@ -15,7 +15,7 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Backend `.env` defaults should be:
+Backend `.env` values for local frontend integration should be:
 
 ```text
 BLOOM_AI_PROVIDER=lmstudio
@@ -23,6 +23,12 @@ BLOOM_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
 BLOOM_LMSTUDIO_MODEL=qwen3.5-9b-mlx
 BLOOM_USE_FAKE_BUNQ=true
 ```
+
+Notes:
+
+- LM Studio is now a real readiness dependency for AI-backed flows.
+- If `BLOOM_LMSTUDIO_MODEL` is missing, `/api/health` reports AI as `not_configured` and backend readiness as `not_ready`.
+- `BLOOM_USE_FAKE_BUNQ=true` still keeps bunq in fake mode while the real bunq sandbox path is hardened.
 
 Frontend:
 
@@ -52,6 +58,14 @@ after photo accepted
 LM Studio verification returns a structured result
 fake payment succeeds
 verdict screen shows updated fake balance
+```
+
+Health expectations in this mode:
+
+```text
+ai configured
+bunq configured in fake mode
+readiness ready
 ```
 
 Backend test command:
@@ -87,6 +101,46 @@ health reports bunq configured
 backend fetches kid balance
 backend creates tiny sandbox payment
 backend fetches updated kid balance
+```
+
+## Opt-In Real Provider Smoke Tests
+
+These smoke checks are excluded from default test runs.
+
+Enable them explicitly:
+
+```bash
+cd apps/api
+export BLOOM_RUN_SMOKE_TESTS=true
+pytest tests/test_integration_smoke.py -q
+```
+
+LM Studio smoke test requires:
+
+```text
+BLOOM_LMSTUDIO_BASE_URL
+BLOOM_LMSTUDIO_MODEL
+```
+
+Optional:
+
+```text
+BLOOM_LMSTUDIO_API_KEY
+```
+
+bunq smoke test requires:
+
+```text
+BUNQ_API_KEY
+BUNQ_PARENT_ACCOUNT_ID
+BUNQ_KID_ACCOUNT_ID
+BLOOM_BUNQ_TOOLKIT_PATH
+```
+
+Expected default result without configuration:
+
+```text
+2 skipped
 ```
 
 ## Reset Local State

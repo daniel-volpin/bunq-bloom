@@ -2,7 +2,6 @@ import base64
 
 from app.errors import AppError
 from app.dependencies import get_snap_and_learn_service
-from app.integrations.fake_verification_client import FakeVerificationClient
 from app.integrations.fake_payment_client import FakePaymentClient
 from app.integrations.lmstudio_client import LMStudioVisionClient
 from app.integrations.unconfigured_verification_client import UnconfiguredVerificationClient
@@ -151,7 +150,7 @@ def test_dependency_selects_lmstudio_client_for_snap_and_learn(monkeypatch, tmp_
     get_snap_and_learn_service.cache_clear()
 
 
-def test_dependency_selects_fake_client_for_snap_and_learn_when_ai_is_unconfigured(monkeypatch, tmp_path):
+def test_dependency_selects_unconfigured_client_for_snap_and_learn_when_ai_is_unconfigured(monkeypatch, tmp_path):
     state_dir = tmp_path / "state"
     upload_dir = tmp_path / "uploads"
     state_dir.mkdir()
@@ -169,7 +168,7 @@ def test_dependency_selects_fake_client_for_snap_and_learn_when_ai_is_unconfigur
 
     service = get_snap_and_learn_service()
 
-    assert isinstance(service.analysis_client, FakeVerificationClient)
+    assert isinstance(service.analysis_client, UnconfiguredVerificationClient)
 
     get_settings.cache_clear()
     get_snap_and_learn_service.cache_clear()

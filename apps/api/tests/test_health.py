@@ -148,8 +148,8 @@ def test_health_reports_local_fake_ai_mode_when_lmstudio_model_is_missing(monkey
 
     assert response.status_code == 200
     body = response.json()
-    assert body["readiness_status"] == "ready"
-    assert body["integrations"]["ai"]["mode"] == "fake"
-    assert body["integrations"]["ai"]["ready"] is True
-    assert body["integrations"]["ai"]["status"] == "configured"
-    assert body["integrations"]["ai"]["missing_config"] == []
+    assert body["readiness_status"] == "not_ready"
+    assert body["integrations"]["ai"]["mode"] == "real"
+    assert body["integrations"]["ai"]["ready"] is False
+    assert body["integrations"]["ai"]["status"] == "not_configured"
+    assert body["integrations"]["ai"]["missing_config"] == ["lmstudio_model_missing"]
