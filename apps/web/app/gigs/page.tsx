@@ -12,9 +12,11 @@ export default function GigsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadGigs() {
-    setLoading(true);
-    setError(null);
+  async function loadGigs(options?: { resetState?: boolean }) {
+    if (options?.resetState ?? true) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
       const response = await apiClient.listGigs();
@@ -31,7 +33,36 @@ export default function GigsPage() {
   }
 
   useEffect(() => {
-    void loadGigs();
+    let active = true;
+
+    async function loadInitialGigs() {
+      try {
+        const response = await apiClient.listGigs();
+        if (!active) {
+          return;
+        }
+        setGigs(response.gigs);
+      } catch (caught) {
+        if (!active) {
+          return;
+        }
+        setError(
+          caught instanceof ApiClientError
+            ? caught.message
+            : "Could not reach the Bloom API. Start the backend or try again."
+        );
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadInitialGigs();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (

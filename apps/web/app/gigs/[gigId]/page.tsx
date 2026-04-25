@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { CameraCapture } from "@/components/camera-capture";
 import { VerdictScreen } from "@/components/verdict-screen";
@@ -26,13 +26,7 @@ export default function GigDetailPage() {
   const [afterImage, setAfterImage] = useState<string | null>(null);
   const [result, setResult] = useState<CompleteGigResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const idempotencyKey = useMemo(() => {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      return `completion_${crypto.randomUUID()}`;
-    }
-    return `completion_${Date.now()}`;
-  }, []);
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     async function loadGig() {
@@ -95,9 +89,16 @@ export default function GigDetailPage() {
     setStep("submitting");
 
     try {
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? `completion_${crypto.randomUUID()}`
+            : `completion_${gigId}`;
+      }
+
       const response = await apiClient.completeGig(gigId, {
         after_image_base64: afterImage,
-        idempotency_key: idempotencyKey
+        idempotency_key: idempotencyKeyRef.current
       });
       setResult(response);
       setStep("result");
