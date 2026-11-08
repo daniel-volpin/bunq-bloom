@@ -12,19 +12,22 @@ parent posts gig -> kid takes before/after photos -> AI verifies -> bunq sandbox
 
 Everything should support making this loop reliable, understandable, and demo-safe before expanding into secondary features.
 
-## User Context
+## Project Status & Local Rules
 
-Read `~/Documents/DevAI/Shared/profile.md` for Daniel's working style and environment context.
+M1 (Core Loop Fake Adapters) is complete. Current priority is **M2 (Real Claude + bunq)**.
+Critical missing piece: `apps/api/app/integrations/claude_client.py`.
 
 Important local rules:
 
 - Keep work scoped and high-signal.
 - Prefer MVP/POC progress over broad abstraction.
 - Plan before non-trivial implementation.
-- Do not read `.env` files or expose secrets.
-- Do not commit, push, reset, or make destructive changes without explicit instruction.
-- Prefer auditable local workflows.
+- Never read `.env`, `bunq_context.json`, `*.key`, or `*.pem` files, or expose secrets.
+- Never run bunq toolkit scripts unless that is the explicit current task.
+- Never call real Claude or bunq APIs in default test runs.
+- Never modify files in `hackathon_toolkit-main/` — it is vendored reference code.
 - Use Podman, not Docker.
+- Follow `.claude/rules/backend.md` for `apps/api/**` and `.claude/rules/frontend.md` for `apps/web/**`.
 
 ## Stack
 
@@ -182,5 +185,20 @@ Examples:
 - Frontend: typecheck, lint, targeted component tests if available.
 - Backend: unit tests for services/adapters, FastAPI route tests.
 - Integration: fake adapters first, then real sandbox smoke tests when credentials are configured.
+
+## Verification & Local State Commands
+
+```bash
+# Backend checks & dependencies
+cd apps/api && pytest tests
+cd apps/api && pip install -e ".[dev]"
+
+# Frontend checks & dependencies
+cd apps/web && npm run typecheck && npm run lint
+
+# Reset or inspect local state
+rm -rf apps/api/data
+cat apps/api/data/state.json | python3 -m json.tool
+```
 
 If checks cannot run because dependencies or credentials are missing, state that clearly.
